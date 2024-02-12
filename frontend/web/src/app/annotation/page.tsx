@@ -4,7 +4,7 @@ import Canvas from '@/components/AnnotationPage/Canvas';
 
 export default function AnnotationPage() {
   return (
-    <div className="flex">
+    <div className="flex flex-1 items-center">
       <AnnotationSideBar />
       <Canvas />
       <ProjectSideBar />

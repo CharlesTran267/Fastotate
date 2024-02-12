@@ -3,10 +3,15 @@
 import dynamic from 'next/dynamic';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Stage, Layer, Image } from 'react-konva';
-import test from '../../resources/test.jpg';
 import { remToPixels } from '../../utils/utils';
-import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
+import {
+  useAnnotationSessionStore,
+  Annotation,
+  ImageAnnotation,
+} from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
+
+import test_image from '@/resources/test.jpg';
 
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
@@ -16,26 +21,15 @@ const PolygonAnnotation = dynamic(() => import('./PolygonAnnotation'), {
   ssr: false,
 });
 
-const imageSrc = test.src;
-
-class Annotation {
-  constructor() {
-    this.id = Math.random();
-    this.points = [];
-    this.isFinished = false;
-  }
-
-  reset() {
-    this.points = [];
-    this.isFinished = false;
-  }
-}
-
 export default function Canvas() {
+  const defaultWidthinRem = 52;
+
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
   );
+  const project = useAnnotationSessionStore((state) => state.project);
+  const selectedImage = sessionActions.getSelectedImage();
 
   const [image, setImage] = useState(null);
   const imageRef = useRef(null);
@@ -44,22 +38,32 @@ export default function Canvas() {
   const [mousePos, setMousePos] = useState([0, 0]);
   const [isMouseOverPoint, setMouseOverPoint] = useState(false);
   const [currentAnnotation, setCurrentAnnotation] = useState(new Annotation());
-  const [annotations, setAnnotations] = useState([]);
-
-  const defaultWidthinRem = 52;
-  const defaultHeightinRem = (defaultWidthinRem * test.height) / test.width;
-
-  const imageElement = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const element = new window.Image();
-      element.width = remToPixels(defaultWidthinRem);
-      element.height = remToPixels(defaultHeightinRem);
-      element.src = imageSrc;
-      return element;
-    }
-  }, [imageSrc]);
 
   useEffect(() => {
+    sessionActions.setSelectedImage(
+      new ImageAnnotation(
+        test_image.src,
+        test_image.width,
+        test_image.height,
+        [],
+      ),
+    );
+  }, []);
+
+  const imageElement = useMemo(() => {
+    if (typeof window !== 'undefined' && selectedImage !== null) {
+      const element = new window.Image();
+      element.src = selectedImage.file_src;
+      element.width = remToPixels(defaultWidthinRem);
+      element.height =
+        (selectedImage.height / selectedImage.width) * element.width;
+      return element;
+    }
+    return null;
+  }, [selectedImage]);
+
+  useEffect(() => {
+    if (imageElement === null) return;
     const onload = function () {
       setImageSize({
         width: imageElement.width,
@@ -80,19 +84,19 @@ export default function Canvas() {
 
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (annotationMode === AnnotationMode.POLYGON || annotationMode === AnnotationMode.RECTANGLE) {
+      if (
+        annotationMode === AnnotationMode.POLYGON ||
+        annotationMode === AnnotationMode.RECTANGLE
+      ) {
         if (e.key === 'Escape') {
           setCurrentAnnotation(new Annotation());
         } else if (e.key === ' ') {
           if (currentAnnotation.points.length > 2) {
-            const newAnnotations = [
-              ...annotations,
-              {
-                ...currentAnnotation,
-                isFinished: true,
-              },
-            ];
-            setAnnotations(newAnnotations);
+            let newSelectedImage = { ...selectedImage };
+            currentAnnotation.isFinished = true;
+            currentAnnotation.className = project.default_class;
+            newSelectedImage.annotations.push(currentAnnotation);
+            sessionActions.setSelectedImage(newSelectedImage);
             setCurrentAnnotation(new Annotation());
           }
         }
@@ -103,6 +107,15 @@ export default function Canvas() {
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [currentAnnotation]);
+
+  useEffect(() => {
+    if (
+      annotationMode !== AnnotationMode.POLYGON ||
+      annotationMode !== AnnotationMode.RECTANGLE
+    ) {
+      setCurrentAnnotation(new Annotation());
+    }
+  }, [annotationMode]);
 
   //drawing begins when mousedown event fires.
   const handleMouseDown = (e) => {
@@ -136,21 +149,21 @@ export default function Canvas() {
     if (pos[1] < 0) pos[1] = 0;
     if (pos[0] > stage.width()) pos[0] = stage.width();
     if (pos[1] > stage.height()) pos[1] = stage.height();
-    let newAnnotations = annotations;
-    newAnnotations.map((annotation) => {
+    let newImageAnnotation = { ...selectedImage };
+    newImageAnnotation.annotations.map((annotation) => {
       if (annotation.id === annotation_id) {
         annotation.points[index] = pos;
       }
     });
-    setAnnotations(newAnnotations);
+    sessionActions.setSelectedImage(newImageAnnotation);
   };
 
   const handleGroupDragEnd = (e, annotation_id) => {
     //drag end listens other children circles' drag end event
     //...that's, why 'name' attr is added, see in polygon annotation part
     if (e.target.name() === 'polygon') {
-      let newAnnotations = annotations;
-      newAnnotations.map((annotation) => {
+      let newImageAnnotation = { ...selectedImage };
+      newImageAnnotation.annotations.map((annotation) => {
         if (annotation.id === annotation_id) {
           let result = [];
           let copyPoints = [...annotation.points];
@@ -161,50 +174,53 @@ export default function Canvas() {
           annotation.points = result;
         }
       });
-      setAnnotations(newAnnotations);
+      sessionActions.setSelectedImage(newImageAnnotation);
     }
   };
 
   return (
     <div className="flex-1">
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex items-center justify-center">
         <div className="max-w-4xl">
-          <Stage
-            width={imageSize.width || 650}
-            height={imageSize.height || 302}
-            onMouseMove={handleMouseMove}
-            onMouseDown={handleMouseDown}
-          >
-            <Layer>
-              <Image
-                ref={imageRef}
-                image={image}
-                x={0}
-                y={0}
-                width={imageSize.width}
-                height={imageSize.height}
-              />
-              {annotations.map((annotation) => {
-                return (
-                  <PolygonAnnotation
-                    key={annotation.id}
-                    annotation={annotation}
-                    mousePos={mousePos}
-                    handlePointDragMove={handlePointDragMove}
-                    handleGroupDragEnd={handleGroupDragEnd}
-                    setMouseOverPoint={setMouseOverPoint}
-                  />
-                );
-              })}
-              <PolygonAnnotation
-                annotation={currentAnnotation}
-                mousePos={mousePos}
-                handlePointDragMove={handlePointDragMove}
-                handleGroupDragEnd={handleGroupDragEnd}
-                setMouseOverPoint={setMouseOverPoint}
-              />
-            </Layer>
-          </Stage>
+          {selectedImage !== null ? (
+            <Stage
+              width={imageSize.width || 650}
+              height={imageSize.height || 302}
+              onMouseMove={handleMouseMove}
+              onMouseDown={handleMouseDown}
+            >
+              <Layer>
+                <Image
+                  ref={imageRef}
+                  image={image}
+                  x={0}
+                  y={0}
+                  width={imageSize.width}
+                  height={imageSize.height}
+                  onClick={() => sessionActions.setSelectedAnnotation(null)}
+                />
+                {selectedImage.annotations.map((annotation) => {
+                  return (
+                    <PolygonAnnotation
+                      key={annotation.id}
+                      annotation={annotation}
+                      mousePos={mousePos}
+                      handlePointDragMove={handlePointDragMove}
+                      handleGroupDragEnd={handleGroupDragEnd}
+                      setMouseOverPoint={setMouseOverPoint}
+                    />
+                  );
+                })}
+                <PolygonAnnotation
+                  annotation={currentAnnotation}
+                  mousePos={mousePos}
+                  handlePointDragMove={handlePointDragMove}
+                  handleGroupDragEnd={handleGroupDragEnd}
+                  setMouseOverPoint={setMouseOverPoint}
+                />
+              </Layer>
+            </Stage>
+          ) : null}
         </div>
       </div>
     </div>

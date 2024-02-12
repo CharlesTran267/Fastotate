@@ -20,7 +20,14 @@ export default function PolygonAnnotation(props) {
     handleGroupDragEnd,
   } = props;
 
-  const annotationMode = useAnnotationSessionStore((state) => state.annotationMode);
+  const annotationMode = useAnnotationSessionStore(
+    (state) => state.annotationMode,
+  );
+  const project = useAnnotationSessionStore((state) => state.project);
+  const sessionActions = useAnnotationSessionStore((state) => state.actions);
+  const selectedAnnotationID = useAnnotationSessionStore(
+    (state) => state.selectedAnnotationID,
+  );
 
   const vertexRadius = 6;
   const [stage, setStage] = useState();
@@ -49,6 +56,7 @@ export default function PolygonAnnotation(props) {
   const [minMaxX, setMinMaxX] = useState([0, 0]); //min and max in x axis
   const [minMaxY, setMinMaxY] = useState([0, 0]); //min and max in y axis
   const handleGroupDragStart = (e) => {
+    sessionActions.setSelectedAnnotation(annotation);
     let arrX = annotation.points.map((p) => p[0]);
     let arrY = annotation.points.map((p) => p[1]);
     setMinMaxX(minMax(arrX));
@@ -66,6 +74,12 @@ export default function PolygonAnnotation(props) {
     return { x, y };
   };
 
+  const handleAnnotationClick = () => {
+    if (annotationMode !== AnnotationMode.SELECT || !annotation.isFinished)
+      return;
+    sessionActions.setSelectedAnnotation(annotation);
+  };
+
   useEffect(() => {
     if (annotation.isFinished) {
       setFlattenPoints(annotation.points.flat());
@@ -77,7 +91,9 @@ export default function PolygonAnnotation(props) {
   return (
     <Group
       name="polygon"
-      draggable={annotation.isFinished && annotationMode === AnnotationMode.SELECT}
+      draggable={
+        annotation.isFinished && annotationMode === AnnotationMode.SELECT
+      }
       onDragStart={handleGroupDragStart}
       onDragEnd={(e) => handleGroupDragEnd(e, annotation.id)}
       dragBoundFunc={groupDragBound}
@@ -89,9 +105,12 @@ export default function PolygonAnnotation(props) {
           annotation.points[0] ? flattenPoints.concat(annotation.points[0]) : []
         }
         stroke="#00F1FF"
-        strokeWidth={3}
+        strokeWidth={
+          selectedAnnotationID && annotation.id === selectedAnnotationID ? 6 : 3
+        }
         closed={annotation.isFinished}
         fill="rgb(140,30,255,0.5)"
+        onClick={handleAnnotationClick}
       />
       {annotation.points.map((point, index) => {
         const x = point[0] - vertexRadius / 2;

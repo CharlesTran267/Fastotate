@@ -18,12 +18,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme="fastotate">
-      <body className={`bg-base-100 ${font.className}`}>
-        <div className="h-screen">
-          <Header />
-          {children}
-          <Footer />
-        </div>
+      <body className={`flex h-screen flex-col bg-base-100 ${font.className}`}>
+        <Header />
+        <main className="flex flex-1 overflow-y-auto">{children}</main>
+        <Footer />
       </body>
     </html>
   );
