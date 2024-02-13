@@ -2,7 +2,7 @@
 import ImageTable from './ImageTable';
 import { AnnotationEditor } from './AnnotationEditor';
 import { ProjectNameEditor } from './ProjectNameEditor';
-import { MutableRefObject, useRef } from 'react';
+import { useRef } from 'react';
 
 export default function ProjectSideBar() {
   const handledeleteImage = () => {
