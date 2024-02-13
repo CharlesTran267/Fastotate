@@ -10,7 +10,7 @@ export default function ImageTable() {
     <table className="table table-pin-rows table-pin-cols text-base-100">
       <thead className="font-black">
         <tr>
-          <th className="w-3/5">File Name</th>
+          <th className="w-3/5">File Name </th>
           <th className="w-2/5 p-1">Annotations</th>
         </tr>
       </thead>

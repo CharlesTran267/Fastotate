@@ -1,5 +1,5 @@
 'use client';
-import ImageTable from './ImagaTable';
+import ImageTable from './ImageTable';
 import { AnnotationEditor } from './AnnotationEditor';
 import { ProjectNameEditor } from './ProjectNameEditor';
 
