@@ -1,7 +1,7 @@
 'use client';
 import AnnotationSideBar from '@/components/AnnotationPage/AnnotationSideBar';
-import ProjectSideBar from '@/components/AnnotationPage/ProjectSideBar';
-import Canvas from '@/components/AnnotationPage/Canvas';
+import ProjectSideBar from '@/components/AnnotationPage/ProjectSideBar/ProjectSideBar';
+import Canvas from '@/components/AnnotationViewer/Canvas';
 import { useEffect, useState } from 'react';
 
 export default function AnnotationPage() {

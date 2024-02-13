@@ -7,7 +7,6 @@ import { remToPixels } from '../../utils/utils';
 import {
   useAnnotationSessionStore,
   Annotation,
-  ImageAnnotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
 

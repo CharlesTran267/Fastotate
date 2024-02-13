@@ -26,8 +26,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/components/AnnotationPage/Canvas.jsx",
-    "src/components/AnnotationPage/Canvas.jsx"
+    "src/components/AnnotationViewer/Canvas.jsx",
+    "src/components/AnnotationViewer/Canvas.jsx"
   ],
   "exclude": ["node_modules"]
 }
