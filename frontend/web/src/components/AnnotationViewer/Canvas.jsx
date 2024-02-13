@@ -9,6 +9,7 @@ import {
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
+import { getImage } from '@/stores/imageDatabase';
 
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
@@ -36,32 +37,51 @@ export default function Canvas() {
   const [isMouseOverPoint, setMouseOverPoint] = useState(false);
   const [currentAnnotation, setCurrentAnnotation] = useState(new Annotation());
 
-  const imageElement = useMemo(() => {
+  const imageElement = useMemo(async () => {
     if (typeof window !== 'undefined' && selectedImage !== null) {
       const element = new window.Image();
-      element.src = selectedImage.file_src;
-      element.width = remToPixels(defaultWidthinRem);
-      element.height =
-        (selectedImage.height / selectedImage.width) * element.width;
-      return element;
+      let success = false;
+      await getImage(selectedImage.db_key)
+        .then((res) => {
+          if (res === null || res === undefined) return null;
+          element.src = URL.createObjectURL(res);
+          success = true;
+        })
+        .catch((e) => {
+          console.error(e);
+        });
+      if (success) return element;
     }
     return null;
   }, [selectedImage]);
 
   useEffect(() => {
-    if (imageElement === null) return;
+    if (selectedImage === null) return;
     const onload = function () {
-      setImageSize({
-        width: imageElement.width,
-        height: imageElement.height,
+      imageElement
+        .then((element) => {
+          setImageSize({
+            width: remToPixels(defaultWidthinRem),
+            height:
+              (element.height / element.width) * remToPixels(defaultWidthinRem),
+          });
+          setImage(element);
+          imageRef.current = element;
+        })
+        .catch((e) => {
+          console.error(e);
+        });
+    };
+    imageElement
+      .then((element) => {
+        element.addEventListener('load', onload);
+        return () => {
+          element.removeEventListener('load', onload);
+        };
+      })
+      .catch((e) => {
+        console.error(e);
       });
-      setImage(imageElement);
-      imageRef.current = imageElement;
-    };
-    imageElement.addEventListener('load', onload);
-    return () => {
-      imageElement.removeEventListener('load', onload);
-    };
   }, [imageElement]);
 
   const getMousePos = (stage) => {

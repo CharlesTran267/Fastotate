@@ -2,7 +2,6 @@ import { AnnotationMode } from '@/types/AnnotationMode';
 import { create } from 'zustand';
 import { defaultProjectConfig } from '@/app.config';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import test_image from '@/resources/test.jpg';
 import { merge } from 'lodash';
 
 export class Annotation {
@@ -36,33 +35,22 @@ export class Annotation {
 export class ImageAnnotation {
   id: number;
   file_name: string;
-  width: number;
-  height: number;
   annotations: Annotation[];
-  file_src: string;
+  db_key: IDBValidKey | null;
 
   constructor(data: ImageAnnotation);
-  constructor(data_or_file_src: string, width: number, height: number);
-  constructor(
-    data_or_file_src: string | ImageAnnotation,
-    width?: number,
-    height?: number,
-  ) {
-    if (data_or_file_src instanceof ImageAnnotation) {
-      this.id = data_or_file_src.id;
-      this.annotations = data_or_file_src.annotations;
-      this.file_src = data_or_file_src.file_src;
-      this.width = data_or_file_src.width;
-      this.height = data_or_file_src.height;
-      this.file_name = data_or_file_src.file_name;
-      return;
+  constructor(db_key: IDBValidKey, file_name: string);
+  constructor(data_or_key: IDBValidKey | ImageAnnotation, file_name?: string) {
+    if (data_or_key instanceof ImageAnnotation) {
+      this.id = data_or_key.id;
+      this.db_key = data_or_key.db_key;
+      this.file_name = data_or_key.file_name;
+      this.annotations = data_or_key.annotations;
     } else {
       this.id = Math.random();
-      this.file_name = data_or_file_src.split('/').pop()!;
-      this.width = width!;
-      this.height = height!;
+      this.db_key = data_or_key!;
+      this.file_name = file_name!;
       this.annotations = [];
-      this.file_src = data_or_file_src;
     }
   }
 
@@ -100,13 +88,7 @@ export class Project {
       this.project_name = defaultProjectConfig.name;
       this.classes = defaultProjectConfig.classes;
       this.default_class = defaultProjectConfig.defaultClass;
-      this.images = [
-        new ImageAnnotation(
-          test_image.src,
-          test_image.width,
-          test_image.height,
-        ),
-      ];
+      this.images = [];
     }
   }
 
@@ -115,6 +97,7 @@ export class Project {
   }
 
   addClass(name: string) {
+    if (this.classes.includes(name)) return;
     this.classes.push(name);
   }
 
@@ -159,6 +142,7 @@ type AnntationSessionStore = {
     getSelectedImage: () => ImageAnnotation | null;
     deleteSelectedImage: () => void;
     deleteSelectedAnnotation: () => void;
+    addImage: (image: ImageAnnotation) => void;
   };
 };
 
@@ -186,9 +170,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>()(
               found = true;
             }
           });
-          if (!found) {
-            newProject.addImage(imageAnnotation);
-          }
+          if (!found) return;
           set(() => ({
             selectedImageID: imageAnnotation?.id,
             project: newProject,
@@ -242,7 +224,9 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>()(
           let newProject = new Project(get().project);
           newProject.images.forEach((image) => {
             if (image.id === get().selectedImageID) {
-              image.removeAnnotation(get().selectedAnnotationID!);
+              const newImage = new ImageAnnotation(image);
+              newImage.removeAnnotation(get().selectedAnnotationID!);
+              Object.assign(image, newImage);
             }
           });
           set(() => ({
@@ -253,6 +237,11 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>()(
         setZoomLevel: (level: number) => set(() => ({ zoomLevel: level })),
         setZoomCenter: (center: { x: number; y: number }) =>
           set(() => ({ zoomCenter: center })),
+        addImage: (image: ImageAnnotation) => {
+          let newProject = new Project(get().project);
+          newProject.addImage(image);
+          set(() => ({ project: newProject }));
+        },
       },
     }),
     {

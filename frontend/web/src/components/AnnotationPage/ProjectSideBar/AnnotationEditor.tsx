@@ -4,6 +4,7 @@ import {
   Project,
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
+import { IoIosCloseCircleOutline } from 'react-icons/io';
 
 export function AnnotationEditor() {
   const project = useAnnotationSessionStore((state) => state.project);
@@ -17,6 +18,7 @@ export function AnnotationEditor() {
   };
 
   const handleChangeClass = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === '+ Add new option') return;
     let newSelectedAnnotation = { ...selectedAnnotation } as Annotation;
     newSelectedAnnotation.className = e.target.value;
     sessionActions.setSelectedAnnotation(newSelectedAnnotation);
@@ -29,22 +31,27 @@ export function AnnotationEditor() {
   const handleSaveAddNewClass = () => {
     let newProject = new Project(project);
     newProject.addClass(newClassInput!);
+    if (selectedAnnotation) {
+      let newSelectedAnnotation = { ...selectedAnnotation } as Annotation;
+      newSelectedAnnotation.className = newClassInput!;
+      sessionActions.setSelectedAnnotation(newSelectedAnnotation);
+    }
     sessionActions.setProject(newProject);
   };
 
   return (
-    <div className="flex h-full flex-col items-center">
+    <div className="flex h-full flex-col items-center border-b-4 border-base-100">
       <h1 className="mt-3 text-xl font-bold text-base-100">
         Annotation Editor
       </h1>
-      <div className="flex h-full flex-col justify-evenly">
+      <div className="flex h-full w-4/5 flex-col justify-evenly">
         <div>
           <h2 className="font-bold text-base-100">Class Name:</h2>
           <select
             className="select select-bordered w-full border-2 border-base-100 bg-neutral text-base-100 focus:border-base-100 disabled:bg-neutral disabled:text-red-600"
             disabled={selectedAnnotation === null}
             onChange={handleChangeClass}
-            value={selectedAnnotation?.className || 'None selected'}
+            value={selectedAnnotation?.className}
           >
             {selectedAnnotation === null ? (
               <option>None selected</option>

@@ -6,6 +6,10 @@ import {
 export default function ImageTable() {
   const project = useAnnotationSessionStore((state) => state.project);
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
+  const selectedImageID = useAnnotationSessionStore(
+    (state) => state.selectedImageID,
+  );
+
   return (
     <table className="table table-pin-rows table-pin-cols text-base-100">
       <thead className="font-black">
@@ -17,22 +21,33 @@ export default function ImageTable() {
       <tbody>
         {project.images.map((image: ImageAnnotation) => (
           <tr
-            className="bg-neutral hover:bg-slate-500"
+            className="bg-neutral hover:cursor-pointer hover:bg-slate-500"
             key={image.id}
             onClick={() => sessionActions.setSelectedImage(image)}
           >
-            <td className="h-10 whitespace-nowrap">{image.file_name}</td>
+            <td
+              className="h-10 whitespace-nowrap"
+              style={
+                image.id === selectedImageID
+                  ? { backgroundColor: 'slateblue' }
+                  : {}
+              }
+            >
+              {image.file_name}
+            </td>
             <th className="bg-neutral text-center">
               {image.annotations.length}
             </th>
           </tr>
         ))}
-        {[...Array(12 - project.images.length)].map((_, i) => (
-          <tr className="bg-neutral hover:bg-slate-500" key={i}>
-            <td className="h-10 whitespace-nowrap"></td>
-            <th className="bg-neutral text-center"></th>
-          </tr>
-        ))}
+        {project.images.length < 10
+          ? [...Array(10 - project.images.length)].map((_, i) => (
+              <tr className="bg-neutral hover:bg-slate-500" key={i}>
+                <td className="h-10 whitespace-nowrap"></td>
+                <th className="bg-neutral text-center"></th>
+              </tr>
+            ))
+          : null}
       </tbody>
     </table>
   );
