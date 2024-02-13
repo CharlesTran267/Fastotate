@@ -11,8 +11,6 @@ import {
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
 
-import test_image from '@/resources/test.jpg';
-
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
 });
@@ -38,17 +36,6 @@ export default function Canvas() {
   const [mousePos, setMousePos] = useState([0, 0]);
   const [isMouseOverPoint, setMouseOverPoint] = useState(false);
   const [currentAnnotation, setCurrentAnnotation] = useState(new Annotation());
-
-  useEffect(() => {
-    sessionActions.setSelectedImage(
-      new ImageAnnotation(
-        test_image.src,
-        test_image.width,
-        test_image.height,
-        [],
-      ),
-    );
-  }, []);
 
   const imageElement = useMemo(() => {
     if (typeof window !== 'undefined' && selectedImage !== null) {
@@ -177,6 +164,10 @@ export default function Canvas() {
       sessionActions.setSelectedImage(newImageAnnotation);
     }
   };
+
+  useEffect(() => {
+    sessionActions.setZoomCenter({ x: mousePos[0], y: mousePos[1] });
+  }, [mousePos]);
 
   return (
     <div className="flex-1">

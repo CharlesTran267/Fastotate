@@ -1,6 +1,9 @@
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { create } from 'zustand';
 import { defaultProjectConfig } from '@/app.config';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import test_image from '@/resources/test.jpg';
+import { merge } from 'lodash';
 
 export class Annotation {
   id: number;
@@ -55,7 +58,7 @@ export class ImageAnnotation {
       return;
     } else {
       this.id = Math.random();
-      this.file_name = data_or_file_src;
+      this.file_name = data_or_file_src.split('/').pop()!;
       this.width = width!;
       this.height = height!;
       this.annotations = [];
@@ -97,7 +100,13 @@ export class Project {
       this.project_name = defaultProjectConfig.name;
       this.classes = defaultProjectConfig.classes;
       this.default_class = defaultProjectConfig.defaultClass;
-      this.images = [];
+      this.images = [
+        new ImageAnnotation(
+          test_image.src,
+          test_image.width,
+          test_image.height,
+        ),
+      ];
     }
   }
 
@@ -139,7 +148,8 @@ type AnntationSessionStore = {
   selectedImageID: number | null;
   selectedAnnotationID: number | null;
   project: Project;
-  project_name: string;
+  zoomLevel: number;
+  zoomCenter: { x: number; y: number };
   actions: {
     setAnnotationMode: (mode: AnnotationMode) => void;
     setProject: (project: Project) => void;
@@ -147,71 +157,111 @@ type AnntationSessionStore = {
     getSelectedAnnotation: () => Annotation | null;
     setSelectedImage: (imageAnnotation: ImageAnnotation) => void;
     getSelectedImage: () => ImageAnnotation | null;
+    deleteSelectedImage: () => void;
+    deleteSelectedAnnotation: () => void;
   };
 };
 
-export const useAnnotationSessionStore = create<AnntationSessionStore>(
-  (set, get) => ({
-    annotationMode: null,
-    selectedImageID: null,
-    selectedAnnotationID: null,
-    project_name: 'new poeject',
-    project: new Project(), // Fix: Invoke the arrow function to assign the returned value directly
-    actions: {
-      setAnnotationMode: (mode: AnnotationMode) =>
-        set(() => ({ annotationMode: mode })),
-      setProject(newProject: Project) {
-        set(() => ({ project: newProject }));
-      },
-      setSelectedImage(imageAnnotation: ImageAnnotation) {
-        let newProject = new Project(get().project);
-        let found = false;
-        newProject.images.map((image) => {
-          if (image.id === imageAnnotation.id) {
-            image = imageAnnotation;
-            found = true;
+export const useAnnotationSessionStore = create<AnntationSessionStore>()(
+  persist(
+    (set, get) => ({
+      annotationMode: null,
+      selectedImageID: null,
+      selectedAnnotationID: null,
+      project: new Project(),
+      zoomLevel: 1,
+      zoomCenter: { x: 0, y: 0 },
+      actions: {
+        setAnnotationMode: (mode: AnnotationMode) =>
+          set(() => ({ annotationMode: mode })),
+        setProject(newProject: Project) {
+          set(() => ({ project: newProject }));
+        },
+        setSelectedImage(imageAnnotation: ImageAnnotation) {
+          let newProject = new Project(get().project);
+          let found = false;
+          newProject.images.map((image) => {
+            if (image.id === imageAnnotation.id) {
+              image = imageAnnotation;
+              found = true;
+            }
+          });
+          if (!found) {
+            newProject.addImage(imageAnnotation);
           }
-        });
-        if (!found) {
-          newProject.addImage(imageAnnotation);
-        }
-        set(() => ({
-          selectedImageID: imageAnnotation.id,
-          project: newProject,
-        }));
-      },
-      getSelectedImage() {
-        return (
-          get().project.images.find((i) => i.id === get().selectedImageID) ||
-          null
-        );
-      },
-      setSelectedAnnotation(annotation: Annotation | null) {
-        let newProject = new Project(get().project);
-        newProject.images.map((image) => {
-          if (image.id === get().selectedImageID) {
-            image.annotations.map((a) => {
-              if (a.id === annotation?.id) {
-                a = annotation!;
+          set(() => ({
+            selectedImageID: imageAnnotation?.id,
+            project: newProject,
+          }));
+        },
+        getSelectedImage() {
+          return (
+            get().project.images.find(
+              (i: ImageAnnotation) => i.id === get().selectedImageID,
+            ) || null
+          );
+        },
+        setSelectedAnnotation(annotation: Annotation | null) {
+          let newProject = new Project(get().project);
+          newProject.images.forEach((image) => {
+            if (image.id === get().selectedImageID) {
+              const foundAnnotation = image.annotations.find(
+                (a) => a.id === annotation?.id,
+              );
+              if (foundAnnotation) {
+                Object.assign(foundAnnotation, annotation);
               }
-            });
-          }
-        });
-        set(() => ({
-          project: newProject,
-          selectedAnnotationID: annotation?.id,
-        }));
+            }
+          });
+          set(() => ({
+            selectedAnnotationID: annotation?.id,
+            project: newProject,
+          }));
+        },
+        getSelectedAnnotation() {
+          let selectedImage = get().project.images.find(
+            (i: ImageAnnotation) => i.id === get().selectedImageID,
+          );
+          return (
+            selectedImage?.annotations.find(
+              (a: Annotation) => a.id === get().selectedAnnotationID,
+            ) || null
+          );
+        },
+        deleteSelectedImage() {
+          if (!get().selectedImageID) return;
+          let newProject = new Project(get().project);
+          newProject.removeImage(get().selectedImageID!);
+          set(() => ({
+            selectedImageID: null,
+            project: newProject,
+          }));
+        },
+        deleteSelectedAnnotation() {
+          if (!get().selectedAnnotationID) return;
+          let newProject = new Project(get().project);
+          newProject.images.forEach((image) => {
+            if (image.id === get().selectedImageID) {
+              image.removeAnnotation(get().selectedAnnotationID!);
+            }
+          });
+          set(() => ({
+            selectedAnnotationID: null,
+            project: newProject,
+          }));
+        },
+        setZoomLevel: (level: number) => set(() => ({ zoomLevel: level })),
+        setZoomCenter: (center: { x: number; y: number }) =>
+          set(() => ({ zoomCenter: center })),
       },
-      getSelectedAnnotation() {
-        let selectedImage = get().project.images.find(
-          (i) => i.id === get().selectedImageID,
-        );
-        return (
-          selectedImage?.annotations.find(
-            (a) => a.id === get().selectedAnnotationID,
-          ) || null
-        );
+    }),
+    {
+      name: 'annotation-session-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: ({ actions, ...rest }: any) => rest,
+      merge: (persisted, current) => {
+        return merge({}, current, persisted);
       },
     },
-  }),
+  ),
 );

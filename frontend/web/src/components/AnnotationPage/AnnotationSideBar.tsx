@@ -23,11 +23,17 @@ export default function AnnotationSideBar() {
         actions.setAnnotationMode(AnnotationMode.POLYGON);
       } else if (e.key === 'r') {
         actions.setAnnotationMode(AnnotationMode.RECTANGLE);
+      } else if (e.key === 'd' && annotationMode === AnnotationMode.SELECT) {
+        handleDeleteSelectedAnnotation();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
+
+  const handleDeleteSelectedAnnotation = () => {
+    actions.deleteSelectedAnnotation();
+  };
 
   return (
     <aside className="w-18 flex h-full flex-col bg-base-100 py-6 text-neutral">
@@ -85,7 +91,10 @@ export default function AnnotationSideBar() {
           </button>
         </div>
         <div className="tooltip tooltip-right" data-tip="Delete">
-          <button className="btn btn-ghost p-1">
+          <button
+            className="btn btn-ghost p-1"
+            onClick={handleDeleteSelectedAnnotation}
+          >
             <MdDeleteForever size={25} />
           </button>
         </div>
