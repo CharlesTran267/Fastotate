@@ -90,7 +90,7 @@ export default function AnnotationSideBar() {
             <ImZoomOut size={20} />
           </button>
         </div>
-        <div className="tooltip tooltip-right" data-tip="Delete">
+        <div className="tooltip tooltip-right" data-tip="Delete (d)">
           <button
             className="btn btn-ghost p-1"
             onClick={handleDeleteSelectedAnnotation}

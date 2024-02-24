@@ -18,7 +18,10 @@ export function AnnotationEditor() {
   };
 
   const handleChangeClass = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (e.target.value === '+ Add new option') return;
+    if (e.target.value === '+ Add new class'){
+      e.preventDefault();
+      return;
+    };
     let newSelectedAnnotation = { ...selectedAnnotation } as Annotation;
     newSelectedAnnotation.className = e.target.value;
     sessionActions.setSelectedAnnotation(newSelectedAnnotation);
@@ -69,7 +72,7 @@ export function AnnotationEditor() {
                     ).showModal()
                   }
                 >
-                  + Add new option
+                  + Add new class
                 </option>
               </>
             )}

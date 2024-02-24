@@ -224,9 +224,9 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>()(
           let newProject = new Project(get().project);
           newProject.images.forEach((image) => {
             if (image.id === get().selectedImageID) {
-              const newImage = new ImageAnnotation(image);
-              newImage.removeAnnotation(get().selectedAnnotationID!);
-              Object.assign(image, newImage);
+              image.annotations = image.annotations.filter(
+                (a) => a.id !== get().selectedAnnotationID,
+              );
             }
           });
           set(() => ({

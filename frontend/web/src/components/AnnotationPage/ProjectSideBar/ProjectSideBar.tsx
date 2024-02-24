@@ -63,8 +63,8 @@ export default function ProjectSideBar() {
       </div>
       <AnnotationEditor />
       <div className="mb-3 mt-5 flex justify-evenly">
-        <button className="btn btn-warning p-1">Save Project</button>
-        <button className="btn btn-success p-1">Export</button>
+        <button className="btn btn-success p-1">Save Project</button>
+        <button className="btn btn-warning p-1">Export</button>
       </div>
     </aside>
   );

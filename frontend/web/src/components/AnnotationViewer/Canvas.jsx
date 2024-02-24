@@ -97,6 +97,7 @@ export default function Canvas() {
         if (e.key === 'Escape') {
           setCurrentAnnotation(new Annotation());
         } else if (e.key === ' ') {
+          e.preventDefault();
           if (currentAnnotation.points.length > 2) {
             let newSelectedImage = { ...selectedImage };
             currentAnnotation.isFinished = true;
@@ -188,6 +189,76 @@ export default function Canvas() {
     sessionActions.setZoomCenter({ x: mousePos[0], y: mousePos[1] });
   }, [mousePos]);
 
+  const stageRef = useRef(null);
+  const handleWheel = (e) => {
+    if (e.evt.ctrlKey === false) return;
+    e.evt.preventDefault();
+    const stage = stageRef.current;
+    const oldScale = stage.scaleX();
+    const zoomSpeed = 0.1;
+    const pointer = stage.getPointerPosition();
+
+    const mouseWheel = e.evt.deltaY < 0 ? 1 : -1;
+    const newScale = oldScale + mouseWheel * zoomSpeed;
+    if (newScale<1 || newScale>10) return;
+
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale,
+    };
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    };
+
+    stage.scale({ x: newScale, y: newScale });
+    stage.position(newPos);
+    stage.batchDraw();
+  }
+
+  const dragBoundFunc = (pos) => {
+    const frameWidth = imageSize.width;
+    const frameHeight = imageSize.height;
+    let newX = pos.x;
+    let newY = pos.y;
+
+    const stage = stageRef.current;
+    const stageScale = stage.scaleX();
+
+    // Adjust these values based on your actual stage and frame dimensions
+    const stageWidth = stageScale * (image ? image.width : 0);
+    const stageHeight = stageScale * (image ? image.height : 0);
+
+    if (newX > 0) newX = 0;
+    if (newY > 0) newY = 0;
+
+    if (stageWidth > frameWidth) {
+      if (newX < -(stageWidth - frameWidth)) newX = -(stageWidth - frameWidth);
+    } else {
+      newX = 0; // Prevent horizontal dragging if the image width is less than the frame width
+    }
+
+    if (stageHeight > frameHeight) {
+      if (newY < -(stageHeight - frameHeight)) newY = -(stageHeight - frameHeight);
+    } else {
+      newY = 0; // Prevent vertical dragging if the image height is less than the frame height
+    }
+
+    return {
+      x: newX,
+      y: newY,
+    };
+  };
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    stage.on('wheel', handleWheel);
+    return () => {
+      stage.off('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <div className="flex-1">
       <div className="flex items-center justify-center">
@@ -198,6 +269,9 @@ export default function Canvas() {
               height={imageSize.height || 302}
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
+              ref={stageRef}
+              draggable
+              dragBoundFunc={dragBoundFunc}
             >
               <Layer>
                 <Image
