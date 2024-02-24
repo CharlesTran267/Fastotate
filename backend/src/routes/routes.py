@@ -1,7 +1,7 @@
-from flask import current_app as app
 from dataclasses import dataclass
-from flask import request, jsonify
+from flask import Flask, request, jsonify
 import numpy as np
+from ..app import app
 
 
 @dataclass
@@ -10,8 +10,7 @@ class Response:
     status: int
     message: str
 
-
-@app.routes("/api/semiauto-annotate/set-image", methods=["POST"])
+@app.route("/api/semiauto-annotate/set-image", methods=["POST"])
 def set_image():
     data = request.data
     project_id = data["project_id"]
@@ -26,7 +25,7 @@ def set_image():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/semiauto-annotate/add_point", methods=["POST"])
+@app.route("/api/semiauto-annotate/add_point", methods=["POST"])
 def add_point():
     data = request.data
     point = data["point"]
@@ -37,7 +36,7 @@ def add_point():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/semiauto-annotate/add_box", methods=["POST"])
+@app.route("/api/semiauto-annotate/add_box", methods=["POST"])
 def add_box():
     data = request.data
     box = data["box"]
@@ -47,7 +46,7 @@ def add_box():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/create-project", methods=["POST"])
+@app.route("/api/create-project", methods=["POST"])
 def create_project():
     project = app.database.add_new_project()
     response = Response(
@@ -56,7 +55,7 @@ def create_project():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/add-image", methods=["POST"])
+@app.route("/api/add-image", methods=["POST"])
 def add_image():
     data = request.data
     project_id = data["project_id"]
@@ -69,7 +68,7 @@ def add_image():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/add-annotation", methods=["POST"])
+@app.route("/api/add-annotation", methods=["POST"])
 def add_annotation():
     data = request.data
     project_id = data["project_id"]
@@ -85,7 +84,7 @@ def add_annotation():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/set-points", methods=["POST"])
+@app.route("/api/set-points", methods=["POST"])
 def set_points():
     data = request.data
     project_id = data["project_id"]
@@ -97,7 +96,7 @@ def set_points():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/delete-project", methods=["POST"])
+@app.route("/api/delete-project", methods=["POST"])
 def delete_project():
     data = request.data
     project_id = data["project_id"]
@@ -106,7 +105,7 @@ def delete_project():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/delete-image", methods=["POST"])
+@app.route("/api/delete-image", methods=["POST"])
 def delete_image():
     data = request.data
     project_id = data["project_id"]
@@ -116,7 +115,7 @@ def delete_image():
     return jsonify(response.__dict__)
 
 
-@app.routes("/api/delete-annotation", methods=["POST"])
+@app.route("/api/delete-annotation", methods=["POST"])
 def delete_annotation():
     data = request.data
     project_id = data["project_id"]
@@ -128,7 +127,7 @@ def delete_annotation():
     )
     return jsonify(response.__dict__)
 
-@app.routes("/api/get-project", methods=["GET"])
+@app.route("/api/get-project", methods=["GET"])
 def get_project():
     project_id = request.data["project_id"]
     project = app.database.get_project(project_id)

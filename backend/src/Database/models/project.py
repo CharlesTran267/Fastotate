@@ -1,6 +1,6 @@
 from ...logger import logger
 from typing import List
-from imageAnnotation import ImageAnnotation
+from .imageAnnotation import ImageAnnotation
 from ...config import defaultProjectConfig
 import uuid
 from pydantic import BaseModel
@@ -10,7 +10,7 @@ class Project(BaseModel):
     project_id: str = uuid.uuid4().hex
     name: str = defaultProjectConfig.name
     classes: List[str] = defaultProjectConfig.classes
-    default_class = defaultProjectConfig.default_class
+    default_class: str = defaultProjectConfig.default_class
     imageAnnotations: List[ImageAnnotation] = []
 
     def setProjectName(self, name: str) -> None:

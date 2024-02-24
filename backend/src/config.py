@@ -2,7 +2,7 @@ from typing import List
 
 
 class defaultProjectConfig:
-    name: str = "default"
+    name: str = "Untitled Project"
     classes: List[str] = ["Class 1"]
     default_class: str = "Class 1"
 

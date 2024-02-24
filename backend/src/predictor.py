@@ -53,7 +53,7 @@ class PredictorWrapper:
         self.reset_annotation()
         self.predictor.reset_image()
 
-    def add_points(self, points: np.array[np.array], label: np.array):
+    def add_points(self, points: np.ndarray[np.ndarray], label: np.ndarray):
         if len(points) != len(label):
             logger.warning("Number of points and labels do not match")
             return
@@ -62,9 +62,9 @@ class PredictorWrapper:
             self.points.append(points[i])
             self.points_label.append(label[i])
 
-    def set_input_box(self, box: np.array):
+    def set_input_box(self, box: np.ndarray):
         self.input_box = box
 
-    def add_point(self, point: np.array, label: int):
+    def add_point(self, point: np.ndarray, label: int):
         self.points.append(point)
         self.points_label.append(label)

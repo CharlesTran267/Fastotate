@@ -22,7 +22,7 @@ class Database:
         return Project.parse_obj(project_data)
 
     def store_project(self, project: Project) -> None:
-        self.db.hmset(project.project_id, project.dict())
+        self.db.set(project.project_id, project.json())
 
     def delete_project(self, projectId: str) -> None:
         self.db.delete(projectId)

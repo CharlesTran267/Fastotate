@@ -1,6 +1,6 @@
 from ...logger import logger
 from typing import List
-from annotation import Annotation
+from .annotation import Annotation
 import uuid
 from pydantic import BaseModel
 import torch
@@ -11,7 +11,7 @@ class ImageAnnotation(BaseModel):
     annotations: List[Annotation] = []
     file_name: str = ""
     image: bytes = b""
-    image_embeddings: torch.Tensor = None
+    # image_embeddings: torch.Tensor = None
 
     def addAnnotation(self, annotation: Annotation) -> None:
         self.annotations.append(annotation)
