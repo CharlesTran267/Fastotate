@@ -1,6 +1,7 @@
 import redis
 from typing import List
 from .models import Project, ImageAnnotation, Annotation
+from ..logger import logger
 
 
 class Database:
@@ -13,13 +14,10 @@ class Database:
 
     def get_project(self, projectId: str) -> Project:
         if not self.db.exists(projectId):
+            logger.debug(f"Project {projectId} not found")
             raise KeyError(f"Project {projectId} not found")
-        project = self.db.hgetall(projectId)
-        project_data = {}
-        for key, value in project.items():
-            project_data[key.decode("utf-8")] = value.decode("utf-8")
-
-        return Project.parse_obj(project_data)
+        project_data = self.db.get(projectId)
+        return Project.parse_raw(project_data)
 
     def store_project(self, project: Project) -> None:
         self.db.set(project.project_id, project.json())
@@ -40,10 +38,12 @@ class Database:
         self, file_name: str, image: bytes, projectId: str
     ) -> ImageAnnotation:
         project = self.get_project(projectId)
-        image = ImageAnnotation(file_name=file_name, image=image)
-        project.addImageAnnotation(image)
+        newImage = ImageAnnotation()
+        newImage.file_name = file_name
+        newImage.image = image
+        project.addImageAnnotation(newImage)
         self.store_project(project)
-        return image
+        return newImage
 
     def add_new_annotation(
         self, projectId: str, imageId: str, points: List[List[int]], className: str

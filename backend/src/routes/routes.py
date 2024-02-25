@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from flask import Flask, request, jsonify
 import numpy as np
 from ..app import app
+import base64
 
 
 @dataclass
@@ -10,9 +11,10 @@ class Response:
     status: int
     message: str
 
+
 @app.route("/api/semiauto-annotate/set-image", methods=["POST"])
 def set_image():
-    data = request.data
+    data = request.args
     project_id = data["project_id"]
     image_id = data["image_id"]
     image = app.database.get_image(project_id, image_id)
@@ -27,7 +29,7 @@ def set_image():
 
 @app.route("/api/semiauto-annotate/add_point", methods=["POST"])
 def add_point():
-    data = request.data
+    data = request.args
     point = data["point"]
     label = data["label"]
     app.predictor.add_point(np.ndarray(point), label)
@@ -38,7 +40,7 @@ def add_point():
 
 @app.route("/api/semiauto-annotate/add_box", methods=["POST"])
 def add_box():
-    data = request.data
+    data = request.args
     box = data["box"]
     app.predictor.set_input_box(np.ndarray(box))
     mask = app.predictor.predict()
@@ -57,10 +59,10 @@ def create_project():
 
 @app.route("/api/add-image", methods=["POST"])
 def add_image():
-    data = request.data
+    data = request.args
+    image = request.files["image"].read()
     project_id = data["project_id"]
     file_name = data["file_name"]
-    image = data["image"]
     image = app.database.add_new_image(file_name, image, project_id)
     response = Response(
         data=image.dict(), status=200, message="Image added successfully"
@@ -70,7 +72,7 @@ def add_image():
 
 @app.route("/api/add-annotation", methods=["POST"])
 def add_annotation():
-    data = request.data
+    data = request.args
     project_id = data["project_id"]
     image_id = data["image_id"]
     points = data["points"]
@@ -86,7 +88,7 @@ def add_annotation():
 
 @app.route("/api/set-points", methods=["POST"])
 def set_points():
-    data = request.data
+    data = request.args
     project_id = data["project_id"]
     image_id = data["image_id"]
     annotation_id = data["annotation_id"]
@@ -98,7 +100,7 @@ def set_points():
 
 @app.route("/api/delete-project", methods=["POST"])
 def delete_project():
-    data = request.data
+    data = request.args
     project_id = data["project_id"]
     app.database.delete_project(project_id)
     response = Response(data=None, status=200, message="Project deleted successfully")
@@ -107,7 +109,7 @@ def delete_project():
 
 @app.route("/api/delete-image", methods=["POST"])
 def delete_image():
-    data = request.data
+    data = request.args
     project_id = data["project_id"]
     image_id = data["image_id"]
     app.database.delete_image(project_id, image_id)
@@ -117,7 +119,7 @@ def delete_image():
 
 @app.route("/api/delete-annotation", methods=["POST"])
 def delete_annotation():
-    data = request.data
+    data = request.args
     project_id = data["project_id"]
     image_id = data["image_id"]
     annotation_id = data["annotation_id"]
@@ -127,11 +129,13 @@ def delete_annotation():
     )
     return jsonify(response.__dict__)
 
+
 @app.route("/api/get-project", methods=["GET"])
 def get_project():
-    project_id = request.data["project_id"]
+    data = request.args
+    project_id = data["project_id"]
     project = app.database.get_project(project_id)
-    response = Response(data=project.dict(), status=200, message="Project retrieved successfully")
+    response = Response(
+        data=project.dict(), status=200, message="Project retrieved successfully"
+    )
     return jsonify(response.__dict__)
-
-
