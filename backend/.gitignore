@@ -1,6 +1,7 @@
 *.pth
 *.jpeg
 *.jpg
+test.py
 test*.py
 
 # Byte-compiled / optimized / DLL files
