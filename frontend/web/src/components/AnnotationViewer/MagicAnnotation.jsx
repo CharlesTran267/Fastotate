@@ -2,7 +2,6 @@ import { Group, Line, Circle } from 'react-konva';
 import { useEffect, useState } from 'react';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { socket } from '@/utils/socket';
-import { set } from 'lodash';
 
 export default function MagicAnnotation(props) {
   const { magicPoints, magicLabels, mousePos } = props;
