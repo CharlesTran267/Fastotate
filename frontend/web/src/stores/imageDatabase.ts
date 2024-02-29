@@ -17,27 +17,29 @@ async function openDatabase() {
 }
 
 // Add an image to the database
-export async function addImage(imageFile: File) {
+export async function addImage(imageFile: File, image_id: string) {
   const db = await openDatabase();
   const tx = db.transaction(storeName, 'readwrite');
   const store = tx.objectStore(storeName);
-  const result = await store.add(imageFile);
-  return result;
+  await store.put(imageFile, image_id);
+  await tx.done;
 }
 
 // Get an image from the database
-export async function getImage(key: IDBValidKey) {
+export async function getImage(image_id: string) {
   const db = await openDatabase();
-  const tx = db.transaction(storeName, 'readonly');
-  const store = tx.objectStore(storeName);
-  const result = await store.get(key);
-  return result;
+  const tx = db.transaction('images', 'readonly');
+  const store = tx.objectStore('images');
+  const image = await store.get(image_id);
+  await tx.done;
+  return image;
 }
 
 // Delete an image from the database
-export async function deleteImage(key: IDBValidKey) {
+export async function deleteImage(image_id: string) {
   const db = await openDatabase();
-  const tx = db.transaction(storeName, 'readwrite');
-  const store = tx.objectStore(storeName);
-  await store.delete(key);
+  const tx = db.transaction('images', 'readwrite');
+  const store = tx.objectStore('images');
+  await store.delete(image_id);
+  await tx.done;
 }

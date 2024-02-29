@@ -1,21 +1,25 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, use } from 'react';
 import { Stage, Layer, Image } from 'react-konva';
-import { remToPixels } from '../../utils/utils';
+import { hexStringToFile, remToPixels } from '../../utils/utils';
 import {
   useAnnotationSessionStore,
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
-import { getImage } from '@/stores/imageDatabase';
+import { set } from 'lodash';
 
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
 });
 
 const PolygonAnnotation = dynamic(() => import('./PolygonAnnotation'), {
+  ssr: false,
+});
+
+const MagicAnnotation = dynamic(() => import('./MagicAnnotation'), {
   ssr: false,
 });
 
@@ -26,37 +30,38 @@ export default function Canvas() {
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
   );
-  const project = useAnnotationSessionStore((state) => state.project);
-  const selectedImage = sessionActions.getSelectedImage();
 
+  const project = useAnnotationSessionStore((state) => state.project);
+  const selectedImageID = useAnnotationSessionStore(
+    (state) => state.selectedImageID,
+  );
+
+  const selectedImage = sessionActions.getSelectedImage();
   const [image, setImage] = useState(null);
   const imageRef = useRef(null);
   const [imageSize, setImageSize] = useState({});
 
   const [mousePos, setMousePos] = useState([0, 0]);
-  const [isMouseOverPoint, setMouseOverPoint] = useState(false);
   const [currentAnnotation, setCurrentAnnotation] = useState(new Annotation());
 
+  const [magicPoints, setMagicPoints] = useState([]);
+  const [magicLabels, setMagicLabels] = useState([]);
+
   const imageElement = useMemo(async () => {
-    if (typeof window !== 'undefined' && selectedImage !== null) {
+    if (typeof window !== 'undefined' && selectedImage != null) {
       const element = new window.Image();
-      let success = false;
-      await getImage(selectedImage.db_key)
-        .then((res) => {
-          if (res === null || res === undefined) return null;
-          element.src = URL.createObjectURL(res);
-          success = true;
-        })
-        .catch((e) => {
-          console.error(e);
-        });
-      if (success) return element;
+      const newImage = hexStringToFile(
+        selectedImage.image,
+        selectedImage.file_name,
+      );
+      element.src = URL.createObjectURL(newImage);
+      return element;
     }
     return null;
   }, [selectedImage]);
 
   useEffect(() => {
-    if (selectedImage === null) return;
+    if (selectedImage == null) return;
     const onload = function () {
       imageElement
         .then((element) => {
@@ -99,13 +104,17 @@ export default function Canvas() {
         } else if (e.key === ' ') {
           e.preventDefault();
           if (currentAnnotation.points.length > 2) {
-            let newSelectedImage = { ...selectedImage };
-            currentAnnotation.isFinished = true;
-            currentAnnotation.className = project.default_class;
-            newSelectedImage.annotations.push(currentAnnotation);
-            sessionActions.setSelectedImage(newSelectedImage);
+            sessionActions.addAnnotation(
+              currentAnnotation.points,
+              project.default_class,
+            );
             setCurrentAnnotation(new Annotation());
           }
+        }
+      } else if (annotationMode === AnnotationMode.MAGIC) {
+        if (e.key === 'Escape') {
+          setMagicPoints([]);
+          setMagicLabels([]);
         }
       }
     };
@@ -126,12 +135,21 @@ export default function Canvas() {
 
   //drawing begins when mousedown event fires.
   const handleMouseDown = (e) => {
+    if (annotationMode === AnnotationMode.MAGIC) {
+      setMagicPoints([...magicPoints, getMousePos(e.target.getStage())]);
+      if (e.evt.button === 2) {
+        setMagicLabels([...magicLabels, 0]);
+      } else if (e.evt.button === 0) {
+        setMagicLabels([...magicLabels, 1]);
+      }
+      return;
+    }
+
     if (
       !(
         annotationMode === AnnotationMode.POLYGON ||
         annotationMode === AnnotationMode.RECTANGLE
-      ) ||
-      isMouseOverPoint
+      )
     )
       return;
     const stage = e.target.getStage();
@@ -146,43 +164,6 @@ export default function Canvas() {
     const stage = e.target.getStage();
     const mousePos = getMousePos(stage);
     setMousePos(mousePos);
-  };
-
-  const handlePointDragMove = (e, annotation_id) => {
-    const stage = e.target.getStage();
-    const index = e.target.index - 1;
-    const pos = [e.target._lastPos.x, e.target._lastPos.y];
-    if (pos[0] < 0) pos[0] = 0;
-    if (pos[1] < 0) pos[1] = 0;
-    if (pos[0] > stage.width()) pos[0] = stage.width();
-    if (pos[1] > stage.height()) pos[1] = stage.height();
-    let newImageAnnotation = { ...selectedImage };
-    newImageAnnotation.annotations.map((annotation) => {
-      if (annotation.id === annotation_id) {
-        annotation.points[index] = pos;
-      }
-    });
-    sessionActions.setSelectedImage(newImageAnnotation);
-  };
-
-  const handleGroupDragEnd = (e, annotation_id) => {
-    //drag end listens other children circles' drag end event
-    //...that's, why 'name' attr is added, see in polygon annotation part
-    if (e.target.name() === 'polygon') {
-      let newImageAnnotation = { ...selectedImage };
-      newImageAnnotation.annotations.map((annotation) => {
-        if (annotation.id === annotation_id) {
-          let result = [];
-          let copyPoints = [...annotation.points];
-          copyPoints.map((point) =>
-            result.push([point[0] + e.target.x(), point[1] + e.target.y()]),
-          );
-          e.target.position({ x: 0, y: 0 });
-          annotation.points = result;
-        }
-      });
-      sessionActions.setSelectedImage(newImageAnnotation);
-    }
   };
 
   useEffect(() => {
@@ -200,7 +181,7 @@ export default function Canvas() {
 
     const mouseWheel = e.evt.deltaY < 0 ? 1 : -1;
     const newScale = oldScale + mouseWheel * zoomSpeed;
-    if (newScale<1 || newScale>10) return;
+    if (newScale < 1 || newScale > 10) return;
 
     const mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
@@ -215,7 +196,7 @@ export default function Canvas() {
     stage.scale({ x: newScale, y: newScale });
     stage.position(newPos);
     stage.batchDraw();
-  }
+  };
 
   const dragBoundFunc = (pos) => {
     const frameWidth = imageSize.width;
@@ -240,7 +221,8 @@ export default function Canvas() {
     }
 
     if (stageHeight > frameHeight) {
-      if (newY < -(stageHeight - frameHeight)) newY = -(stageHeight - frameHeight);
+      if (newY < -(stageHeight - frameHeight))
+        newY = -(stageHeight - frameHeight);
     } else {
       newY = 0; // Prevent vertical dragging if the image height is less than the frame height
     }
@@ -253,27 +235,38 @@ export default function Canvas() {
 
   useEffect(() => {
     const stage = stageRef.current;
+    if (stage == null) return;
     stage.on('wheel', handleWheel);
     return () => {
       stage.off('wheel', handleWheel);
     };
-  }, []);
+  }, [stageRef.current]);
+
+  useEffect(() => {
+    if (annotationMode !== AnnotationMode.MAGIC) {
+      setMagicPoints([]);
+    }
+  }, [annotationMode]);
 
   return (
     <div className="flex-1">
       <div className="flex items-center justify-center">
         <div className="max-w-4xl">
-          {selectedImage !== null ? (
+          {selectedImage != null ? (
             <Stage
               width={imageSize.width || 650}
               height={imageSize.height || 302}
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
               ref={stageRef}
-              draggable
+              draggable={false}
               dragBoundFunc={dragBoundFunc}
             >
-              <Layer>
+              <Layer
+                onContextMenu={(e) => {
+                  e.evt.preventDefault();
+                }}
+              >
                 <Image
                   ref={imageRef}
                   image={image}
@@ -281,27 +274,28 @@ export default function Canvas() {
                   y={0}
                   width={imageSize.width}
                   height={imageSize.height}
-                  onClick={() => sessionActions.setSelectedAnnotation(null)}
+                  onClick={() => sessionActions.setSelectedAnnotationID(null)}
                 />
                 {selectedImage.annotations.map((annotation) => {
                   return (
                     <PolygonAnnotation
-                      key={annotation.id}
+                      key={annotation.annotation_id}
                       annotation={annotation}
                       mousePos={mousePos}
-                      handlePointDragMove={handlePointDragMove}
-                      handleGroupDragEnd={handleGroupDragEnd}
-                      setMouseOverPoint={setMouseOverPoint}
                     />
                   );
                 })}
                 <PolygonAnnotation
                   annotation={currentAnnotation}
                   mousePos={mousePos}
-                  handlePointDragMove={handlePointDragMove}
-                  handleGroupDragEnd={handleGroupDragEnd}
-                  setMouseOverPoint={setMouseOverPoint}
                 />
+                {annotationMode === AnnotationMode.MAGIC ? (
+                  <MagicAnnotation
+                    magicPoints={magicPoints}
+                    magicLabels={magicLabels}
+                    mousePos={mousePos}
+                  />
+                ) : null}
               </Layer>
             </Stage>
           ) : null}

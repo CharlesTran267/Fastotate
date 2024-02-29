@@ -9,22 +9,25 @@ import { IoIosCloseCircleOutline } from 'react-icons/io';
 export function AnnotationEditor() {
   const project = useAnnotationSessionStore((state) => state.project);
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
+  const selectedAnnotatioID = useAnnotationSessionStore(
+    (state) => state.selectedAnnotationID,
+  );
   const selectedAnnotation = sessionActions.getSelectedAnnotation();
 
   const handleSetDefaultClass = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    let newProject = { ...project } as Project;
-    newProject.default_class = e.target.value;
-    sessionActions.setProject(newProject);
+    sessionActions.changeDefaultClass(e.target.value);
   };
 
   const handleChangeClass = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (e.target.value === '+ Add new class'){
+    if (e.target.value === '+ Add new class') {
       e.preventDefault();
       return;
-    };
-    let newSelectedAnnotation = { ...selectedAnnotation } as Annotation;
-    newSelectedAnnotation.className = e.target.value;
-    sessionActions.setSelectedAnnotation(newSelectedAnnotation);
+    }
+    sessionActions.modifySelectedAnnotation(
+      selectedAnnotation!.points,
+      e.target.value,
+      selectedAnnotation!.annotation_id,
+    );
   };
 
   const [newClassInput, setNewClassInput] = useState<string | null>(null);
@@ -32,14 +35,7 @@ export function AnnotationEditor() {
     setNewClassInput(e.target.value);
   };
   const handleSaveAddNewClass = () => {
-    let newProject = new Project(project);
-    newProject.addClass(newClassInput!);
-    if (selectedAnnotation) {
-      let newSelectedAnnotation = { ...selectedAnnotation } as Annotation;
-      newSelectedAnnotation.className = newClassInput!;
-      sessionActions.setSelectedAnnotation(newSelectedAnnotation);
-    }
-    sessionActions.setProject(newProject);
+    sessionActions.addClass(newClassInput!);
   };
 
   return (
@@ -60,9 +56,8 @@ export function AnnotationEditor() {
               <option>None selected</option>
             ) : (
               <>
-                {project.classes.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
+                {project &&
+                  project.classes.map((c) => <option key={c}>{c}</option>)}
                 <option
                   onClick={() =>
                     (
@@ -111,10 +106,10 @@ export function AnnotationEditor() {
             defaultValue="Default Class"
             className="select select-bordered w-full border-2 border-base-100 bg-neutral text-base-100 focus:border-base-100"
             onChange={handleSetDefaultClass}
+            value={project?.default_class}
           >
-            {project.classes.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
+            {project &&
+              project.classes.map((c) => <option key={c}>{c}</option>)}
           </select>
         </div>
       </div>

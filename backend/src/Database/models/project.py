@@ -3,11 +3,11 @@ from typing import List
 from .imageAnnotation import ImageAnnotation
 from ...config import defaultProjectConfig
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Project(BaseModel):
-    project_id: str = uuid.uuid4().hex
+    project_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     name: str = defaultProjectConfig.name
     classes: List[str] = defaultProjectConfig.classes
     default_class: str = defaultProjectConfig.default_class
@@ -37,9 +37,9 @@ class Project(BaseModel):
     def addImageAnnotation(self, imageAnnotation: ImageAnnotation) -> None:
         self.imageAnnotations.append(imageAnnotation)
 
-    def removeImageAnnotation(self, imageAnnotation: ImageAnnotation) -> None:
+    def removeImageAnnotation(self, imageAnnotation_id: str) -> None:
         for image in self.imageAnnotations:
-            if image.id == imageAnnotation.id:
+            if image.image_id == imageAnnotation_id:
                 self.imageAnnotations.remove(image)
                 return
         logger.warning(
@@ -48,7 +48,7 @@ class Project(BaseModel):
 
     def getImageAnnotation(self, imageAnnotationId: str) -> ImageAnnotation:
         for image in self.imageAnnotations:
-            if image.id == imageAnnotationId:
+            if image.image_id == imageAnnotationId:
                 return image
         logger.warning(
             f"ImageAnnotation {imageAnnotationId} not in imageAnnotations list"

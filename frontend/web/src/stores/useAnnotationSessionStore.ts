@@ -1,256 +1,316 @@
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { create } from 'zustand';
-import { defaultProjectConfig } from '@/app.config';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { merge } from 'lodash';
+import axios from 'axios';
+import { socket } from '@/utils/socket';
 
 export class Annotation {
-  id: number;
+  annotation_id: string;
   points: number[];
-  isFinished: boolean;
   className: string;
+  isFinished: boolean;
 
-  constructor() {
-    this.id = Math.random();
-    this.points = [];
-    this.className = '';
-    this.isFinished = false;
-  }
-
-  setClassName(name: string) {
-    this.className = name;
-  }
-
-  addPoint(point: number) {
-    this.points.push(point);
-  }
-
-  reset() {
-    this.points = [];
-    this.className = '';
-    this.isFinished = false;
+  constructor();
+  constructor(data: any);
+  constructor(data?: any) {
+    if (!data) {
+      this.annotation_id = '';
+      this.points = [];
+      this.className = '';
+      this.isFinished = false;
+      return;
+    }
+    this.annotation_id = data.annotation_id;
+    this.points = data.points;
+    this.className = data.className;
+    this.isFinished = true;
   }
 }
 
 export class ImageAnnotation {
-  id: number;
+  image_id: string;
   file_name: string;
+  image: string;
   annotations: Annotation[];
-  db_key: IDBValidKey | null;
 
-  constructor(data: ImageAnnotation);
-  constructor(db_key: IDBValidKey, file_name: string);
-  constructor(data_or_key: IDBValidKey | ImageAnnotation, file_name?: string) {
-    if (data_or_key instanceof ImageAnnotation) {
-      this.id = data_or_key.id;
-      this.db_key = data_or_key.db_key;
-      this.file_name = data_or_key.file_name;
-      this.annotations = data_or_key.annotations;
-    } else {
-      this.id = Math.random();
-      this.db_key = data_or_key!;
-      this.file_name = file_name!;
-      this.annotations = [];
-    }
-  }
-
-  addAnnotation(annotation: Annotation) {
-    this.annotations.push(annotation);
-  }
-
-  removeAnnotation(annotation_id: number) {
-    this.annotations = this.annotations.filter((a) => a.id !== annotation_id);
-  }
-
-  reset() {
-    this.annotations.forEach((annotation) => annotation.reset());
+  constructor(data: any) {
+    this.image_id = data.image_id;
+    this.file_name = data.file_name;
+    this.image = data.image;
+    this.annotations = data.annotations.map(
+      (annotation: any) => new Annotation(annotation),
+    );
   }
 }
 
 export class Project {
-  id: number;
-  project_name: string;
+  project_id: string;
+  name: string;
   classes: string[];
   default_class: string;
-  images: ImageAnnotation[];
+  imageAnnotations: ImageAnnotation[];
 
-  constructor();
-  constructor(data: Project);
-  constructor(data?: Project) {
-    if (data) {
-      this.id = data.id;
-      this.project_name = data.project_name;
-      this.classes = data.classes;
-      this.default_class = data.default_class;
-      this.images = data.images;
-    } else {
-      this.id = Math.random();
-      this.project_name = defaultProjectConfig.name;
-      this.classes = defaultProjectConfig.classes;
-      this.default_class = defaultProjectConfig.defaultClass;
-      this.images = [];
-    }
-  }
-
-  setProjectName(name: string) {
-    this.project_name = name;
-  }
-
-  addClass(name: string) {
-    if (this.classes.includes(name)) return;
-    this.classes.push(name);
-  }
-
-  removeClass(name: string) {
-    this.classes = this.classes.filter((c) => c !== name);
-  }
-
-  setDefaultClass(name: string) {
-    this.classes.map((c) => {
-      if (c === name) {
-        this.default_class = name;
-      }
+  constructor(data: any) {
+    this.project_id = data.project_id;
+    this.name = data.name;
+    this.classes = data.classes;
+    this.default_class = data.default_class;
+    this.imageAnnotations = data.imageAnnotations.map((image: any) => {
+      // const imageInDB = await getImage(image.image_id);
+      // if (imageInDB == null) {
+      //   await addImage(hexStringToFile(image.image, image.file_name), image.image_id);
+      // }
+      const newImage = new ImageAnnotation(image);
+      return newImage;
     });
-  }
-
-  addImage(image: ImageAnnotation) {
-    this.images.push(image);
-  }
-
-  removeImage(image_id: number) {
-    this.images = this.images.filter((i) => i.id !== image_id);
-  }
-
-  reset() {
-    this.images.forEach((image) => image.reset());
   }
 }
 
 type AnntationSessionStore = {
   annotationMode: AnnotationMode | null;
-  selectedImageID: number | null;
-  selectedAnnotationID: number | null;
-  project: Project;
+  selectedImageID: string | null;
+  selectedAnnotationID: string | null;
+  project: Project | null;
   zoomLevel: number;
   zoomCenter: { x: number; y: number };
   actions: {
+    createProject: () => string | Promise<string> | null;
+    updateProject: (project_id: string) => void;
     setAnnotationMode: (mode: AnnotationMode) => void;
-    setProject: (project: Project) => void;
-    setSelectedAnnotation: (annotation: Annotation) => void;
-    getSelectedAnnotation: () => Annotation | null;
-    setSelectedImage: (imageAnnotation: ImageAnnotation) => void;
+    setSelectedImageID: (imageID: string) => void;
+    setSelectedAnnotationID: (annotationID: string) => void;
+    uploadImage: (image: File, project_id: string) => void;
+    addAnnotation: (points: number[], className: string) => void;
+    removeSelectedAnnotation: () => void;
+    removeSelectedImage: () => void;
     getSelectedImage: () => ImageAnnotation | null;
-    deleteSelectedImage: () => void;
-    deleteSelectedAnnotation: () => void;
-    addImage: (image: ImageAnnotation) => void;
+    getSelectedAnnotation: () => Annotation | null;
+    modifySelectedAnnotation: (
+      points: number[],
+      className: string,
+      annotation_id: string,
+    ) => void;
+    changeProjectName: (name: string) => void;
+    changeDefaultClass: (className: string) => void;
+    addClass: (className: string) => void;
+    setZoomLevel: (zoomLevel: number) => void;
+    setZoomCenter: (x: number, y: number) => void;
+    setMagicImage: (image_id: string) => void;
+    setMagicPoints: (points: number[], labels: number[]) => void;
   };
 };
 
-export const useAnnotationSessionStore = create<AnntationSessionStore>()(
-  persist(
-    (set, get) => ({
-      annotationMode: null,
+export const useAnnotationSessionStore = create<AnntationSessionStore>(
+  (set, get) => {
+    const backendURL = 'http://localhost:5000/api';
+
+    socket.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+
+    socket.on('get_project', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('add_annotation', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('delete_annotation', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('delete_image', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('modify_annotation', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('change_project_name', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('set_default_class', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('add_class', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    return {
+      annotationMode: AnnotationMode.SELECT,
       selectedImageID: null,
       selectedAnnotationID: null,
-      project: new Project(),
+      project: null,
       zoomLevel: 1,
       zoomCenter: { x: 0, y: 0 },
       actions: {
+        createProject: async () => {
+          try {
+            const response = await axios.post(`${backendURL}/create-project`);
+            set(() => ({ project: new Project(response.data.data) }));
+            return response.data.data.project_id;
+          } catch (error) {
+            console.error('Error creating project:', error);
+            return null;
+          }
+        },
+        updateProject: (project_id: string) => {
+          socket.emit('get_project', { project_id: project_id });
+        },
         setAnnotationMode: (mode: AnnotationMode) =>
           set(() => ({ annotationMode: mode })),
-        setProject(newProject: Project) {
-          set(() => ({ project: newProject }));
+        setSelectedAnnotationID: (annotationID: string) =>
+          set(() => ({ selectedAnnotationID: annotationID })),
+        setSelectedImageID: (imageID: string) =>
+          set(() => ({ selectedImageID: imageID })),
+        uploadImage: async (image: File, project_id: string) => {
+          const formData = new FormData();
+          formData.append('image', image);
+          formData.append('project_id', project_id);
+          formData.append('file_name', image.name);
+          try {
+            // Send a POST request with the formData
+            const response = await axios.post(
+              `${backendURL}/add-image`,
+              formData,
+              {
+                headers: {
+                  // Inform the server about the multipart/form-data content type
+                  'Content-Type': 'multipart/form-data',
+                },
+              },
+            );
+            console.log('Server Response:', response.data);
+            get().actions.updateProject(project_id);
+          } catch (error) {
+            console.error('Error uploading image:', error);
+          }
         },
-        setSelectedImage(imageAnnotation: ImageAnnotation) {
-          let newProject = new Project(get().project);
-          let found = false;
-          newProject.images.map((image) => {
-            if (image.id === imageAnnotation.id) {
-              image = imageAnnotation;
-              found = true;
-            }
+        addAnnotation: (points: number[], className: string) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('add_annotation', {
+            project_id: project_id,
+            image_id: get().selectedImageID,
+            points: JSON.stringify(points),
+            class_name: className,
           });
-          if (!found) return;
-          set(() => ({
-            selectedImageID: imageAnnotation?.id,
-            project: newProject,
-          }));
         },
-        getSelectedImage() {
-          return (
-            get().project.images.find(
-              (i: ImageAnnotation) => i.id === get().selectedImageID,
-            ) || null
-          );
-        },
-        setSelectedAnnotation(annotation: Annotation | null) {
-          let newProject = new Project(get().project);
-          newProject.images.forEach((image) => {
-            if (image.id === get().selectedImageID) {
-              const foundAnnotation = image.annotations.find(
-                (a) => a.id === annotation?.id,
-              );
-              if (foundAnnotation) {
-                Object.assign(foundAnnotation, annotation);
-              }
-            }
+        removeSelectedAnnotation: () => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('delete_annotation', {
+            project_id: project_id,
+            image_id: get().selectedImageID,
+            annotation_id: get().selectedAnnotationID,
           });
-          set(() => ({
-            selectedAnnotationID: annotation?.id,
-            project: newProject,
-          }));
         },
-        getSelectedAnnotation() {
-          let selectedImage = get().project.images.find(
-            (i: ImageAnnotation) => i.id === get().selectedImageID,
-          );
-          return (
-            selectedImage?.annotations.find(
-              (a: Annotation) => a.id === get().selectedAnnotationID,
-            ) || null
-          );
-        },
-        deleteSelectedImage() {
-          if (!get().selectedImageID) return;
-          let newProject = new Project(get().project);
-          newProject.removeImage(get().selectedImageID!);
-          set(() => ({
-            selectedImageID: null,
-            project: newProject,
-          }));
-        },
-        deleteSelectedAnnotation() {
-          if (!get().selectedAnnotationID) return;
-          let newProject = new Project(get().project);
-          newProject.images.forEach((image) => {
-            if (image.id === get().selectedImageID) {
-              image.annotations = image.annotations.filter(
-                (a) => a.id !== get().selectedAnnotationID,
-              );
-            }
+        removeSelectedImage: async () => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('delete_image', {
+            project_id: project_id,
+            image_id: get().selectedImageID,
           });
-          set(() => ({
-            selectedAnnotationID: null,
-            project: newProject,
-          }));
         },
-        setZoomLevel: (level: number) => set(() => ({ zoomLevel: level })),
-        setZoomCenter: (center: { x: number; y: number }) =>
-          set(() => ({ zoomCenter: center })),
-        addImage: (image: ImageAnnotation) => {
-          let newProject = new Project(get().project);
-          newProject.addImage(image);
-          set(() => ({ project: newProject }));
+        getSelectedImage: () => {
+          if (get().selectedImageID) {
+            const selectedImage = get().project?.imageAnnotations.find(
+              (image) => image.image_id === get().selectedImageID,
+            );
+            return selectedImage || null;
+          }
+          return null;
+        },
+        getSelectedAnnotation: () => {
+          if (get().selectedAnnotationID) {
+            const selectedImage = get().actions.getSelectedImage();
+            const selectedAnnotation = selectedImage?.annotations.find(
+              (annotation) =>
+                annotation.annotation_id === get().selectedAnnotationID,
+            );
+            return selectedAnnotation || null;
+          }
+          return null;
+        },
+        modifySelectedAnnotation: (
+          points: number[],
+          className: string,
+          annotation_id: string,
+        ) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('modify_annotation', {
+            project_id: project_id,
+            image_id: get().selectedImageID,
+            annotation_id: annotation_id,
+            points: JSON.stringify(points),
+            class_name: className,
+          });
+        },
+        changeProjectName: (name: string) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('change_project_name', {
+            project_id: project_id,
+            name: name,
+          });
+        },
+        changeDefaultClass: (className: string) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('set_default_class', {
+            project_id: project_id,
+            class_name: className,
+          });
+        },
+        addClass: (className: string) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('add_class', {
+            project_id: project_id,
+            class_name: className,
+          });
+        },
+        setZoomLevel: (zoomLevel: number) => set(() => ({ zoomLevel })),
+        setZoomCenter: (x: number, y: number) =>
+          set(() => ({ zoomCenter: { x, y } })),
+        setMagicImage: (image_id: string) => {
+          console.log('Setting magic image:', image_id);
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('set_magic_image', {
+            project_id: project_id,
+            image_id: image_id,
+          });
+        },
+        setMagicPoints: (points: number[], labels: number[]) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('set_magic_points', {
+            project_id: project_id,
+            image_id: get().selectedImageID,
+            points: JSON.stringify(points),
+            labels: JSON.stringify(labels),
+          });
         },
       },
-    }),
-    {
-      name: 'annotation-session-storage',
-      storage: createJSONStorage(() => localStorage),
-      partialize: ({ actions, ...rest }: any) => rest,
-      merge: (persisted, current) => {
-        return merge({}, current, persisted);
-      },
-    },
-  ),
+    };
+  },
 );

@@ -1,4 +1,24 @@
+'use client';
+import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
+import { useRouter } from 'next/navigation';
+
 export default function FileUploader() {
+  const sessionActions = useAnnotationSessionStore((state) => state.actions);
+  const router = useRouter();
+  const handleFileInputChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = e.target.files;
+    if (files) {
+      const project_id = await sessionActions.createProject();
+      if (!project_id) return;
+      for (let i = 0; i < files.length; i++) {
+        sessionActions.uploadImage(files[i], project_id!);
+      }
+      router.push(`/annotation/${project_id}`);
+    }
+  };
+
   return (
     <div className="flex w-full items-center justify-center">
       <label
@@ -9,7 +29,6 @@ export default function FileUploader() {
           <svg
             className="mb-4 h-8 w-8 text-gray-500 dark:text-gray-400"
             aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 20 16"
           >
@@ -26,10 +45,15 @@ export default function FileUploader() {
             drop
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            SVG, PNG, JPG or GIF (MAX. 800x400px)
+            SVG, PNG, JPG or GIF
           </p>
         </div>
-        <input id="dropzone-file" type="file" className="hidden" />
+        <input
+          id="dropzone-file"
+          type="file"
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
       </label>
     </div>
   );

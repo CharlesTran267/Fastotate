@@ -15,7 +15,6 @@ export default function RectangleAnnotation() {
         {annotations.map((annotation) => {
           return (
             <Rect
-              key={annotation.id}
               x={annotation.x}
               y={annotation.y}
               width={annotation.width}

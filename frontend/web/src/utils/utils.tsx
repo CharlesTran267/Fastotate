@@ -28,3 +28,39 @@ export const remToPixels = (rem: number) => {
   // Convert the rem value to pixels
   return rem * rootFontSize;
 };
+
+function getFileExtension(fileName: string): string {
+  // Split the fileName by dot and get the last element of the array
+  const parts = fileName.split('.');
+  // If there's no extension or the fileName is just a dot (hidden files in Unix-like systems), return an empty string
+  return parts.length > 1 ? parts[parts.length - 1] : '';
+}
+
+export const hexStringToFile = (hexString: string, fileName: string) => {
+  const mimeType = `image/${getFileExtension(fileName)}`;
+  function hexStringToByteArray(hexString: string): Uint8Array {
+    if (hexString.length % 2 !== 0) {
+      throw new Error('Invalid hexString');
+    }
+    const byteArray = new Uint8Array(hexString.length / 2);
+    for (let i = 0; i < byteArray.length; i++) {
+      byteArray[i] = parseInt(hexString.substr(i * 2, 2), 16);
+    }
+    return byteArray;
+  }
+
+  // Step 2: Convert Byte Array to Blob
+  function byteArrayToBlob(byteArray: Uint8Array, mimeType: string): Blob {
+    return new Blob([byteArray], { type: mimeType });
+  }
+
+  // Convert hex string to byte array
+  const byteArray = hexStringToByteArray(hexString);
+
+  // Convert byte array to Blob (specify the correct MIME type)
+  const blob = byteArrayToBlob(byteArray, mimeType);
+
+  // Step 3: Convert Blob to File
+  const file = new File([blob], fileName, { type: mimeType });
+  return file;
+};

@@ -16,14 +16,12 @@ export function ProjectNameEditor() {
     setProjectNameInput(e.target.value);
   };
   const handleSaveNewProjectName = () => {
-    let newProject = { ...project } as Project;
-    newProject.project_name = projectNameInput!;
-    sessionActions.setProject(newProject);
+    sessionActions.changeProjectName(projectNameInput!);
   };
   return (
     <div className="flex items-center justify-center border-b-4 border-base-100">
       <h2 className="text-xl font-bold text-base-100">
-        {project.project_name}
+        {project ? project.name : null}
       </h2>
       <button
         className="btn btn-ghost p-2"

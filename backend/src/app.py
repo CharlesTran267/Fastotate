@@ -1,8 +1,8 @@
-from . import create_app
+from . import create_app, socketio
 
 app = create_app()
 
 from .routes import routes
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    socketio.run(app, port=5000)

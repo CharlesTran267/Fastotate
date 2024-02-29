@@ -39,6 +39,7 @@ class Database:
     ) -> ImageAnnotation:
         project = self.get_project(projectId)
         newImage = ImageAnnotation()
+        print("image_id", newImage.image_id)
         newImage.file_name = file_name
         newImage.image = image
         project.addImageAnnotation(newImage)
@@ -55,13 +56,18 @@ class Database:
         self.store_project(project)
         return annotation
 
-    def setPoints(
-        self, projectId: str, imageId: str, annotationId: str, points: List[List[int]]
+    def modify_annotation(
+        self,
+        projectId: str,
+        imageId: str,
+        annotationId: str,
+        points: List[List[int]],
+        class_name: str,
     ) -> None:
         project = self.get_project(projectId)
         image = project.getImageAnnotation(imageId)
         annotation = image.getAnnotation(annotationId)
-        annotation.setPoints(points)
+        annotation.modify_annotation(points, class_name)
         self.store_project(project)
 
     def delete_image(self, projectId: str, imageId: str) -> None:
@@ -75,4 +81,19 @@ class Database:
         project = self.get_project(projectId)
         image = project.getImageAnnotation(imageId)
         image.removeAnnotation(annotationId)
+        self.store_project(project)
+
+    def add_class(self, projectId: str, className: str) -> None:
+        project = self.get_project(projectId)
+        project.addClass(className)
+        self.store_project(project)
+
+    def change_project_name(self, projectId: str, name: str) -> None:
+        project = self.get_project(projectId)
+        project.setProjectName(name)
+        self.store_project(project)
+
+    def set_default_class(self, projectId: str, className: str) -> None:
+        project = self.get_project(projectId)
+        project.setDefaultClass(className)
         self.store_project(project)

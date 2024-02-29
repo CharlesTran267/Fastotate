@@ -23,6 +23,7 @@ class PredictorWrapper:
         if self.predictor.is_image_set:
             self.predictor.reset_image()
         self.predictor.set_image(image)
+        logger.debug("Image set")
 
     @property
     def is_image_set(self):
@@ -68,3 +69,10 @@ class PredictorWrapper:
     def add_point(self, point: np.ndarray, label: int):
         self.points.append(point)
         self.points_label.append(label)
+
+    def set_points(self, points: np.ndarray, labels: np.ndarray):
+        if len(points) != len(labels):
+            logger.warning("Number of points and labels do not match")
+            return
+        self.points = points
+        self.points_label = labels

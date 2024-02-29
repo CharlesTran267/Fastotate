@@ -3,20 +3,20 @@ import ImageTable from './ImageTable';
 import { AnnotationEditor } from './AnnotationEditor';
 import { ProjectNameEditor } from './ProjectNameEditor';
 import { useRef } from 'react';
-import { addImage, deleteImage } from '@/stores/imageDatabase';
-import {
-  useAnnotationSessionStore,
-  ImageAnnotation,
-} from '@/stores/useAnnotationSessionStore';
+import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
+import { useParams } from 'next/navigation';
 
 export default function ProjectSideBar() {
+  const projectId = useParams().project_id as string;
+
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
-  const selectedImage = sessionActions.getSelectedImage();
+  const selectedImageID = useAnnotationSessionStore(
+    (state) => state.selectedImageID,
+  );
 
   const handledeleteImage = () => {
-    if (selectedImage) {
-      deleteImage(selectedImage.db_key!);
-      sessionActions.deleteSelectedImage();
+    if (selectedImageID) {
+      sessionActions.removeSelectedImage();
     }
   };
 
@@ -27,9 +27,7 @@ export default function ProjectSideBar() {
     const files = e.target.files;
     if (files) {
       for (let i = 0; i < files.length; i++) {
-        const db_key = await addImage(files[i]);
-        const newImage = new ImageAnnotation(db_key, files[i].name);
-        sessionActions.addImage(newImage);
+        sessionActions.uploadImage(files[i], projectId);
       }
     }
   };

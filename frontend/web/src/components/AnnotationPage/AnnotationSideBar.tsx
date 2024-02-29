@@ -5,7 +5,8 @@ import { FaArrowPointer } from 'react-icons/fa6';
 import { MdDeleteForever } from 'react-icons/md';
 import { ImZoomIn } from 'react-icons/im';
 import { ImZoomOut } from 'react-icons/im';
-import { useEffect, useState } from 'react';
+import { FaMagic } from 'react-icons/fa';
+import { useEffect } from 'react';
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 
@@ -25,6 +26,8 @@ export default function AnnotationSideBar() {
         actions.setAnnotationMode(AnnotationMode.RECTANGLE);
       } else if (e.key === 'd' && annotationMode === AnnotationMode.SELECT) {
         handleDeleteSelectedAnnotation();
+      } else if (e.key === 'm') {
+        actions.setAnnotationMode(AnnotationMode.MAGIC);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -32,7 +35,7 @@ export default function AnnotationSideBar() {
   });
 
   const handleDeleteSelectedAnnotation = () => {
-    actions.deleteSelectedAnnotation();
+    actions.removeSelectedAnnotation();
   };
 
   return (
@@ -50,6 +53,20 @@ export default function AnnotationSideBar() {
             }}
           >
             <FaArrowPointer size={20} />
+          </button>
+        </div>
+        <div className="tooltip tooltip-right" data-tip="Magic Mode (m)">
+          <button
+            className="btn btn-ghost p-1"
+            onClick={() => actions.setAnnotationMode(AnnotationMode.MAGIC)}
+            style={{
+              backgroundColor:
+                annotationMode === AnnotationMode.MAGIC
+                  ? 'var(--fallback-bc,oklch(var(--bc)/0.2))'
+                  : '',
+            }}
+          >
+            <FaMagic size={20} />
           </button>
         </div>
         <div className="tooltip tooltip-right" data-tip="Polygon (p)">
