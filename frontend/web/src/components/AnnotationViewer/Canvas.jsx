@@ -3,13 +3,16 @@
 import dynamic from 'next/dynamic';
 import { useState, useRef, useEffect, useMemo, use } from 'react';
 import { Stage, Layer, Image } from 'react-konva';
-import { hexStringToFile, remToPixels } from '../../utils/utils';
+import {
+  hexStringToFile,
+  relativeToOriginalCoords,
+  remToPixels,
+} from '../../utils/utils';
 import {
   useAnnotationSessionStore,
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
-import { set } from 'lodash';
 
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
@@ -40,6 +43,7 @@ export default function Canvas() {
   const [image, setImage] = useState(null);
   const imageRef = useRef(null);
   const [imageSize, setImageSize] = useState({});
+  const [oriSize, setOriSize] = useState({});
 
   const [mousePos, setMousePos] = useState([0, 0]);
   const [currentAnnotation, setCurrentAnnotation] = useState(new Annotation());
@@ -65,6 +69,7 @@ export default function Canvas() {
     const onload = function () {
       imageElement
         .then((element) => {
+          setOriSize({ width: element.width, height: element.height });
           setImageSize({
             width: remToPixels(defaultWidthinRem),
             height:
@@ -135,8 +140,20 @@ export default function Canvas() {
 
   //drawing begins when mousedown event fires.
   const handleMouseDown = (e) => {
+    if (
+      !(
+        annotationMode === AnnotationMode.POLYGON ||
+        annotationMode === AnnotationMode.RECTANGLE ||
+        annotationMode === AnnotationMode.MAGIC
+      )
+    )
+      return;
+
+    const stage = e.target.getStage();
+    const mousePos = getMousePos(stage);
+    const mouseOriPos = relativeToOriginalCoords(mousePos, imageSize, oriSize);
     if (annotationMode === AnnotationMode.MAGIC) {
-      setMagicPoints([...magicPoints, getMousePos(e.target.getStage())]);
+      setMagicPoints([...magicPoints, mouseOriPos]);
       if (e.evt.button === 2) {
         setMagicLabels([...magicLabels, 0]);
       } else if (e.evt.button === 0) {
@@ -145,18 +162,9 @@ export default function Canvas() {
       return;
     }
 
-    if (
-      !(
-        annotationMode === AnnotationMode.POLYGON ||
-        annotationMode === AnnotationMode.RECTANGLE
-      )
-    )
-      return;
-    const stage = e.target.getStage();
-    const mousePos = getMousePos(stage);
     setCurrentAnnotation({
       ...currentAnnotation,
-      points: [...currentAnnotation.points, mousePos],
+      points: [...currentAnnotation.points, mouseOriPos],
     });
   };
 
@@ -248,9 +256,29 @@ export default function Canvas() {
     }
   }, [annotationMode]);
 
+  const handleKeyDownDialog = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
   return (
     <div className="flex-1">
       <div className="flex items-center justify-center">
+        <dialog
+          id="setting_image_modal"
+          className="modal"
+          onKeyDown={handleKeyDownDialog}
+        >
+          <div className="modal-box">
+            <div className="flex">
+              <h3 className="text-lg font-bold">Encoding Image</h3>
+              <span className="loading loading-spinner loading-sm mx-3"></span>
+            </div>
+            <p className="py-4"> This may take longer on the first try</p>
+          </div>
+        </dialog>
         <div className="max-w-4xl">
           {selectedImage != null ? (
             <Stage
@@ -282,18 +310,25 @@ export default function Canvas() {
                       key={annotation.annotation_id}
                       annotation={annotation}
                       mousePos={mousePos}
+                      imageSize={imageSize}
+                      oriSize={oriSize}
                     />
                   );
                 })}
                 <PolygonAnnotation
                   annotation={currentAnnotation}
                   mousePos={mousePos}
+                  imageSize={imageSize}
+                  oriSize={oriSize}
                 />
                 {annotationMode === AnnotationMode.MAGIC ? (
                   <MagicAnnotation
                     magicPoints={magicPoints}
                     magicLabels={magicLabels}
-                    mousePos={mousePos}
+                    setMagicPoints={setMagicPoints}
+                    setMagicLabels={setMagicLabels}
+                    imageSize={imageSize}
+                    oriSize={oriSize}
                   />
                 ) : null}
               </Layer>

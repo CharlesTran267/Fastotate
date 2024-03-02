@@ -4,8 +4,9 @@ from .annotation import Annotation
 import uuid
 import torch
 import base64
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from ...utils.hexBytes import HexBytes
+from ...utils.serialisableTensor import TorchTensor
 
 
 class ImageAnnotation(BaseModel):
@@ -13,7 +14,7 @@ class ImageAnnotation(BaseModel):
     annotations: List[Annotation] = []
     file_name: str = None
     image: HexBytes = None
-    # image_embeddings: torch.Tensor = None
+    image_embeddings: TorchTensor = None
 
     def addAnnotation(self, annotation: Annotation) -> None:
         self.annotations.append(annotation)

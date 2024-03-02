@@ -3,9 +3,10 @@ import { Line, Circle, Group } from 'react-konva';
 import { minMax, dragBoundFunc } from '../../utils/utils';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
+import { originalToRelativeCoords } from '../../utils/utils';
 
 export default function PolygonAnnotation(props) {
-  const { annotation, mousePos } = props;
+  const { annotation, mousePos, imageSize, oriSize } = props;
 
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
@@ -22,7 +23,7 @@ export default function PolygonAnnotation(props) {
 
   const vertexRadius = 6;
   const [stage, setStage] = useState();
-  const [flattenPoints, setFlattenPoints] = useState([]);
+  const [flattenPoints, setFlattenPoints] = useState();
 
   const handleMouseOverPoint = (e) => {
     e.target.scale({ x: 1.5, y: 1.5 });
@@ -113,11 +114,17 @@ export default function PolygonAnnotation(props) {
   };
 
   useEffect(() => {
-    if (annotation.isFinished) {
-      setFlattenPoints(annotation.points.flat());
-    } else {
-      setFlattenPoints(annotation.points.flat().concat(mousePos));
+    const relativePoints = originalToRelativeCoords(
+      annotation.points,
+      imageSize,
+      oriSize,
+    );
+    let newFlattenPoints = relativePoints.flat();
+    if (!annotation.isFinished) {
+      newFlattenPoints = newFlattenPoints.concat(mousePos);
     }
+    newFlattenPoints.push(newFlattenPoints[0], newFlattenPoints[1]);
+    setFlattenPoints(newFlattenPoints);
   }, [annotation.points, annotation.isFinished, mousePos]);
 
   return (
@@ -133,9 +140,7 @@ export default function PolygonAnnotation(props) {
       onMouseOut={handleGroupMouseOut}
     >
       <Line
-        points={
-          annotation.points[0] ? flattenPoints.concat(annotation.points[0]) : []
-        }
+        points={flattenPoints}
         stroke="#00F1FF"
         strokeWidth={
           selectedAnnotationID &&
@@ -147,29 +152,31 @@ export default function PolygonAnnotation(props) {
         fill="rgb(140,30,255,0.5)"
         onClick={handleAnnotationClick}
       />
-      {annotation.points.map((point, index) => {
-        const x = point[0] - vertexRadius / 2;
-        const y = point[1] - vertexRadius / 2;
-        return (
-          <Circle
-            key={index}
-            x={x}
-            y={y}
-            radius={vertexRadius}
-            fill="#FF019A"
-            stroke="#00F1FF"
-            strokeWidth={2}
-            draggable={annotationMode === AnnotationMode.SELECT}
-            onDragEnd={(e) => handlePointDragEnd(e, annotation.annotation_id)}
-            dragBoundFunc={(pos) =>
-              dragBoundFunc(stage.width(), stage.height(), vertexRadius, pos)
-            }
-            hitStrokeWidth={12}
-            onMouseOver={handleMouseOverPoint}
-            onMouseOut={handleMouseOutPoint}
-          />
-        );
-      })}
+      {originalToRelativeCoords(annotation.points, imageSize, oriSize).map(
+        (point, index) => {
+          const x = point[0] - vertexRadius / 2;
+          const y = point[1] - vertexRadius / 2;
+          return (
+            <Circle
+              key={index}
+              x={x}
+              y={y}
+              radius={vertexRadius}
+              fill="#FF019A"
+              stroke="#00F1FF"
+              strokeWidth={2}
+              draggable={annotationMode === AnnotationMode.SELECT}
+              onDragEnd={(e) => handlePointDragEnd(e, annotation.annotation_id)}
+              dragBoundFunc={(pos) =>
+                dragBoundFunc(stage.width(), stage.height(), vertexRadius, pos)
+              }
+              hitStrokeWidth={12}
+              onMouseOver={handleMouseOverPoint}
+              onMouseOut={handleMouseOutPoint}
+            />
+          );
+        },
+      )}
     </Group>
   );
 }

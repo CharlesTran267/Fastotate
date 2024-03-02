@@ -2,6 +2,7 @@ import redis
 from typing import List
 from .models import Project, ImageAnnotation, Annotation
 from ..logger import logger
+import torch
 
 
 class Database:
@@ -39,7 +40,6 @@ class Database:
     ) -> ImageAnnotation:
         project = self.get_project(projectId)
         newImage = ImageAnnotation()
-        print("image_id", newImage.image_id)
         newImage.file_name = file_name
         newImage.image = image
         project.addImageAnnotation(newImage)
@@ -96,4 +96,12 @@ class Database:
     def set_default_class(self, projectId: str, className: str) -> None:
         project = self.get_project(projectId)
         project.setDefaultClass(className)
+        self.store_project(project)
+
+    def set_image_embeddings(
+        self, projectId: str, imageId: str, embeddings: torch.Tensor
+    ) -> None:
+        project = self.get_project(projectId)
+        image = project.getImageAnnotation(imageId)
+        image.setImageEmbeddings(embeddings)
         self.store_project(project)

@@ -64,3 +64,43 @@ export const hexStringToFile = (hexString: string, fileName: string) => {
   const file = new File([blob], fileName, { type: mimeType });
   return file;
 };
+
+export const relativeToOriginalCoords = (
+  points: any[],
+  newSize: { width: number; height: number },
+  oriSize: { width: number; height: number },
+) => {
+  if (points.length > 0 && typeof points[0] === 'number') {
+    return [
+      (points[0] / newSize.width) * oriSize.width,
+      (points[1] / newSize.height) * oriSize.height,
+    ];
+  }
+  let ans: number[][] = [];
+  points.map((p: number[]) => {
+    const p0 = (p[0] / newSize.width) * oriSize.width;
+    const p1 = (p[1] / newSize.height) * oriSize.height;
+    ans.push([p0, p1]);
+  });
+  return ans;
+};
+
+export const originalToRelativeCoords = (
+  points: any[],
+  newSize: { width: number; height: number },
+  oriSize: { width: number; height: number },
+) => {
+  if (points.length > 0 && typeof points[0] === 'number') {
+    return [
+      (points[0] / oriSize.width) * newSize.width,
+      (points[1] / oriSize.height) * newSize.height,
+    ];
+  }
+  let ans: number[][] = [];
+  points.map((p: number[]) => {
+    const p0 = (p[0] / oriSize.width) * newSize.width;
+    const p1 = (p[1] / oriSize.height) * newSize.height;
+    ans.push([p0, p1]);
+  });
+  return ans;
+};

@@ -80,6 +80,9 @@ type AnntationSessionStore = {
     setSelectedAnnotationID: (annotationID: string) => void;
     uploadImage: (image: File, project_id: string) => void;
     addAnnotation: (points: number[], className: string) => void;
+    addAnnotations: (
+      annotations: { points: number[]; className: string }[],
+    ) => void;
     removeSelectedAnnotation: () => void;
     removeSelectedImage: () => void;
     getSelectedImage: () => ImageAnnotation | null;
@@ -140,6 +143,10 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
     });
 
     socket.on('add_class', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('add_annotations', (data: any) => {
       set(() => ({ project: new Project(data.data) }));
     });
 
@@ -308,6 +315,18 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             image_id: get().selectedImageID,
             points: JSON.stringify(points),
             labels: JSON.stringify(labels),
+          });
+        },
+        addAnnotations: (
+          annotations: { points: number[]; className: string }[],
+        ) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('add_annotations', {
+            project_id: project_id,
+            image_id: get().selectedImageID,
+            annotations: JSON.stringify(annotations),
           });
         },
       },

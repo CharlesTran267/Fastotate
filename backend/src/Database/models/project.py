@@ -43,7 +43,7 @@ class Project(BaseModel):
                 self.imageAnnotations.remove(image)
                 return
         logger.warning(
-            f"ImageAnnotation {imageAnnotation.id} not in imageAnnotations list"
+            f"ImageAnnotation {imageAnnotation_id} not in imageAnnotations list"
         )
 
     def getImageAnnotation(self, imageAnnotationId: str) -> ImageAnnotation:

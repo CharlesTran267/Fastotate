@@ -1,6 +1,7 @@
 from segment_anything import sam_model_registry, SamPredictor
 import numpy as np
 from .logger import logger
+import torch
 
 
 class PredictorWrapper:
@@ -19,11 +20,10 @@ class PredictorWrapper:
         self.mask_input = None
         self.input_box = None
 
-    def set_image(self, image: np.ndarray):
-        if self.predictor.is_image_set:
-            self.predictor.reset_image()
-        self.predictor.set_image(image)
+    def set_image(self, image: np.ndarray, features: torch.Tensor = None):
+        image_embeddings = self.predictor.set_image(image, features=features)
         logger.debug("Image set")
+        return image_embeddings
 
     @property
     def is_image_set(self):

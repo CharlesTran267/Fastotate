@@ -5,6 +5,7 @@ import json
 from flask_socketio import Namespace, emit
 from ..utils.response import Response
 from ..logger import logger
+from src.utils.utils import findVerticesFromMasks
 
 
 class ProjectManagement(Namespace):
@@ -30,14 +31,34 @@ class ProjectManagement(Namespace):
         )
         emit("add_annotation", response.__dict__, to=request.sid)
 
+    def on_add_annotations(self, data):
+        import time
+
+        start = time.time()
+        project_id = data["project_id"]
+        image_id = data["image_id"]
+        annotations = json.loads(data["annotations"])
+        for annotation in annotations:
+            points = annotation["points"]
+            class_name = annotation["className"]
+            logger.debug(f"Adding annotation {annotation}")
+            app.database.add_new_annotation(project_id, image_id, points, class_name)
+        project = app.database.get_project(project_id)
+        response = Response(
+            data=project.dict(), status=200, message="Annotations added successfully"
+        )
+        logger.debug("Finished adding annotations")
+        emit("add_annotations", response.__dict__, to=request.sid)
+        logger.debug(f"Time to emit: {time.time() - start}")
+
     def on_modify_annotation(self, data):
         project_id = data["project_id"]
         image_id = data["image_id"]
         annotation_id = data["annotation_id"]
         points = json.loads(data["points"])
-        className = data["class_name"]
+        class_name = data["class_name"]
         app.database.modify_annotation(
-            project_id, image_id, annotation_id, points, className
+            project_id, image_id, annotation_id, points, class_name
         )
         project = app.database.get_project(project_id)
         response = Response(
@@ -126,7 +147,11 @@ class ProjectManagement(Namespace):
         import PIL.Image
 
         setImage = PIL.Image.open(io.BytesIO(image.image))
-        app.predictor.set_image(np.array(setImage, dtype=np.uint8)[:, :, :3])
+        image_embeddings = app.predictor.set_image(
+            np.array(setImage, dtype=np.uint8)[:, :, :3], image.image_embeddings
+        )
+        if image.image_embeddings is None:
+            app.database.set_image_embeddings(project_id, image_id, image_embeddings)
         response = Response(data=None, status=200, message="Image set successfully")
         emit("set_magic_image", response.__dict__, to=request.sid)
 
@@ -135,6 +160,7 @@ class ProjectManagement(Namespace):
         label = data["label"]
         app.predictor.add_point(np.array(point), label)
         mask = app.predictor.predict()
+        logger.info("Finish predict mask")
         response = Response(data=mask, status=200, message="Point added successfully")
         emit("add_magic_point", response.__dict__, to=request.sid)
 
@@ -142,6 +168,7 @@ class ProjectManagement(Namespace):
         box = data["box"]
         app.predictor.set_input_box(np.array(box))
         mask = app.predictor.predict()
+        logger.info("Finish predict mask")
         response = Response(data=mask, status=200, message="Box added successfully")
         emit("add_magic_box", response.__dict__, to=request.sid)
 
@@ -152,11 +179,12 @@ class ProjectManagement(Namespace):
             response = Response(data=None, status=400, message="No points set")
             emit("set_magic_points", response.__dict__, to=request.sid)
             return
-
         app.predictor.set_points(np.array(points), np.array(labels))
-        mask = app.predictor.predict()
+        masks = app.predictor.predict()
+        logger.info("Finish predict mask")
+        vertices = findVerticesFromMasks(masks)
         response = Response(
-            data=json.dumps(mask.tolist()),
+            data=json.dumps(vertices),
             status=200,
             message="Points set successfully",
         )
