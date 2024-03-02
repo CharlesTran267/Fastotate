@@ -1,6 +1,7 @@
 *.pth
 *.jpeg
 *.jpg
+*.ipynb
 test.py
 test*.py
 
