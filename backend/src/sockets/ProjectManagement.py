@@ -52,6 +52,7 @@ class ProjectManagement(Namespace):
         logger.debug(f"Time to emit: {time.time() - start}")
 
     def on_modify_annotation(self, data):
+        logger.debug("Modifying annotation")
         project_id = data["project_id"]
         image_id = data["image_id"]
         annotation_id = data["annotation_id"]
@@ -64,6 +65,7 @@ class ProjectManagement(Namespace):
         response = Response(
             data=project.dict(), status=200, message="Points set successfully"
         )
+        logger.debug("Finished modifying annotation")
         emit("modify_annotation", response.__dict__, to=request.sid)
 
     def on_delete_project(self, data):
@@ -181,11 +183,11 @@ class ProjectManagement(Namespace):
             return
         app.predictor.set_points(np.array(points), np.array(labels))
         masks = app.predictor.predict()
-        logger.info("Finish predict mask")
         vertices = findVerticesFromMasks(masks)
         response = Response(
             data=json.dumps(vertices),
             status=200,
             message="Points set successfully",
         )
+        logger.info("Finish predict mask")
         emit("set_magic_points", response.__dict__, to=request.sid)

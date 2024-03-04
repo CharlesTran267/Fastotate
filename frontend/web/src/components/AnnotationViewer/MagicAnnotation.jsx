@@ -1,7 +1,6 @@
 import { Group, Line, Circle } from 'react-konva';
 import { useEffect, useState } from 'react';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
-import { socket } from '@/utils/socket';
 import { originalToRelativeCoords } from '@/utils/utils';
 import { AnnotationMode } from '@/types/AnnotationMode';
 
@@ -30,23 +29,27 @@ export default function MagicAnnotation(props) {
 
   const [loading, setLoading] = useState(false);
 
-  socket.on('set_magic_points', (resp) => {
-    const polyVertices = JSON.parse(resp.data);
-    if (polyVertices == null) return;
-    let newCurrentPointGroups = [];
-    const newFlattenPoints = polyVertices.map((vers) => {
-      newCurrentPointGroups.push(vers);
-      return originalToRelativeCoords(vers, imageSize, oriSize).flat();
-    });
-    setFlattenPoints(newFlattenPoints);
-    setCurrentPointGroups(newCurrentPointGroups);
-  });
-
-  socket.on('set_magic_image', (resp) => {
-    setLoading(false);
-  });
+  const socketResponse = useAnnotationSessionStore((state) => state.response);
+  useEffect(() => {
+    if (socketResponse === null) return;
+    if (socketResponse.event_name === 'set_magic_points') {
+      const polyVertices = socketResponse.data;
+      if (polyVertices == null) return;
+      let newCurrentPointGroups = [];
+      const newFlattenPoints = polyVertices.map((vers) => {
+        newCurrentPointGroups.push(vers);
+        return originalToRelativeCoords(vers, imageSize, oriSize).flat();
+      });
+      setFlattenPoints(newFlattenPoints);
+      setCurrentPointGroups(newCurrentPointGroups);
+    } else if (socketResponse.event_name === 'set_magic_image') {
+      setLoading(false);
+    }
+  }, [socketResponse]);
 
   useEffect(() => {
+    if (annotationMode !== AnnotationMode.MAGIC || magicPoints.length === 0)
+      return;
     sessionActions.setMagicPoints(magicPoints, magicLabels);
   }, [magicPoints, magicLabels]);
 
@@ -70,7 +73,6 @@ export default function MagicAnnotation(props) {
               className: project.default_class,
             });
           }
-          console.log(annotations);
           if (annotations.length > 0)
             sessionActions.addAnnotations(annotations);
         }

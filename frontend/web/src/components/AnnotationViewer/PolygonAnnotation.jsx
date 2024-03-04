@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Line, Circle, Group } from 'react-konva';
-import { minMax, dragBoundFunc } from '../../utils/utils';
+import {
+  minMax,
+  dragBoundFunc,
+  relativeToOriginalCoords,
+} from '../../utils/utils';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { originalToRelativeCoords } from '../../utils/utils';
@@ -47,8 +51,13 @@ export default function PolygonAnnotation(props) {
   const [minMaxY, setMinMaxY] = useState([0, 0]); //min and max in y axis
   const handleGroupDragStart = (e) => {
     sessionActions.setSelectedAnnotationID(annotation.annotation_id);
-    let arrX = annotation.points.map((p) => p[0]);
-    let arrY = annotation.points.map((p) => p[1]);
+    const relativePoints = originalToRelativeCoords(
+      annotation.points,
+      imageSize,
+      oriSize,
+    );
+    let arrX = relativePoints.map((p) => p[0]);
+    let arrY = relativePoints.map((p) => p[1]);
     setMinMaxX(minMax(arrX));
     setMinMaxY(minMax(arrY));
   };
@@ -80,7 +89,11 @@ export default function PolygonAnnotation(props) {
     if (pos[1] > stage.height()) pos[1] = stage.height();
     selectedImage.annotations.map((annotation) => {
       if (annotation.annotation_id === annotation_id) {
-        annotation.points[index] = pos;
+        annotation.points[index] = relativeToOriginalCoords(
+          pos,
+          imageSize,
+          oriSize,
+        );
         sessionActions.modifySelectedAnnotation(
           annotation.points,
           annotation.className,
@@ -97,10 +110,15 @@ export default function PolygonAnnotation(props) {
       selectedImage.annotations.map((annotation) => {
         if (annotation.annotation_id === annotation_id) {
           let result = [];
-          let copyPoints = [...annotation.points];
-          copyPoints.map((point) =>
-            result.push([point[0] + e.target.x(), point[1] + e.target.y()]),
+          const copyPoints = [...annotation.points];
+          const newXY = relativeToOriginalCoords(
+            [e.target.x(), e.target.y()],
+            imageSize,
+            oriSize,
           );
+          copyPoints.map((point) => {
+            result.push([point[0] + newXY[0], point[1] + newXY[1]]);
+          });
           e.target.position({ x: 0, y: 0 });
           annotation.points = result;
           sessionActions.modifySelectedAnnotation(
@@ -173,6 +191,7 @@ export default function PolygonAnnotation(props) {
               hitStrokeWidth={12}
               onMouseOver={handleMouseOverPoint}
               onMouseOut={handleMouseOutPoint}
+              onClick={handleAnnotationClick}
             />
           );
         },

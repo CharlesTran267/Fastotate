@@ -13,6 +13,16 @@ class Project(BaseModel):
     default_class: str = defaultProjectConfig.default_class
     imageAnnotations: List[ImageAnnotation] = []
 
+    def dict(self, *args, **kwargs):
+        # exclude image and image_embeddings from serialization
+        exclude = {"image", "image_embeddings"}
+        d = super().dict(*args, **kwargs)
+        for image in d["imageAnnotations"]:
+            for key in exclude:
+                if key in image:
+                    del image[key]
+        return d
+
     def setProjectName(self, name: str) -> None:
         self.name = name
 

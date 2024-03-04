@@ -2,6 +2,8 @@ import { AnnotationMode } from '@/types/AnnotationMode';
 import { create } from 'zustand';
 import axios from 'axios';
 import { socket } from '@/utils/socket';
+import { addImage, deleteImage } from './imageDatabase';
+import { hexStringToFile } from '@/utils/utils';
 
 export class Annotation {
   annotation_id: string;
@@ -29,13 +31,11 @@ export class Annotation {
 export class ImageAnnotation {
   image_id: string;
   file_name: string;
-  image: string;
   annotations: Annotation[];
 
   constructor(data: any) {
     this.image_id = data.image_id;
     this.file_name = data.file_name;
-    this.image = data.image;
     this.annotations = data.annotations.map(
       (annotation: any) => new Annotation(annotation),
     );
@@ -72,6 +72,7 @@ type AnntationSessionStore = {
   project: Project | null;
   zoomLevel: number;
   zoomCenter: { x: number; y: number };
+  response: object | null;
   actions: {
     createProject: () => string | Promise<string> | null;
     updateProject: (project_id: string) => void;
@@ -115,10 +116,12 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
     });
 
     socket.on('get_project', (data: any) => {
+      console.log('Project updated');
       set(() => ({ project: new Project(data.data) }));
     });
 
     socket.on('add_annotation', (data: any) => {
+      console.log('Annotation added');
       set(() => ({ project: new Project(data.data) }));
     });
 
@@ -131,6 +134,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
     });
 
     socket.on('modify_annotation', (data: any) => {
+      console.log('Annotation modified');
       set(() => ({ project: new Project(data.data) }));
     });
 
@@ -147,7 +151,25 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
     });
 
     socket.on('add_annotations', (data: any) => {
+      console.log('Annotations added');
       set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('set_magic_image', (data: any) => {
+      console.log('Magic image set');
+      const response = {
+        event_name: 'set_magic_image',
+      };
+      set(() => ({ response: response }));
+    });
+
+    socket.on('set_magic_points', (data: any) => {
+      console.log('Magic points set');
+      const response = {
+        event_name: 'set_magic_points',
+        data: JSON.parse(data.data),
+      };
+      set(() => ({ response: response }));
     });
 
     return {
@@ -157,6 +179,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
       project: null,
       zoomLevel: 1,
       zoomCenter: { x: 0, y: 0 },
+      response: null,
       actions: {
         createProject: async () => {
           try {
@@ -194,8 +217,15 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
                 },
               },
             );
-            console.log('Server Response:', response.data);
-            get().actions.updateProject(project_id);
+            set(() => ({
+              project: new Project(response.data.data['project']),
+            }));
+            const image = response.data.data['image'];
+            const imageFile = hexStringToFile(
+              image['image_byteString'],
+              image['file_name'],
+            );
+            await addImage(imageFile, image['image_id']);
           } catch (error) {
             console.error('Error uploading image:', error);
           }
@@ -229,6 +259,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             project_id: project_id,
             image_id: get().selectedImageID,
           });
+          await deleteImage(get().selectedImageID!);
         },
         getSelectedImage: () => {
           if (get().selectedImageID) {

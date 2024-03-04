@@ -20,7 +20,25 @@ def add_image():
     file_name = data["file_name"]
     image = app.database.add_new_image(file_name, image, project_id)
     project = app.database.get_project(project_id)
+    imageInfo = {
+        "image_id": image.image_id,
+        "file_name": image.file_name,
+        "image_byteString": image.image.hex(),
+    }
     response = Response(
-        data=project.dict(), status=200, message="Image added successfully"
+        data={"project": project.dict(), "image": imageInfo},
+        status=200,
+        message="Image added successfully",
+    )
+    return jsonify(response.__dict__)
+
+
+@app.route("/api/get-image", methods=["GET"])
+def get_image():
+    project_id = request.args.get("project_id")
+    image_id = request.args.get("image_id")
+    image = app.database.get_image(project_id, image_id)
+    response = Response(
+        data=image.image, status=200, message="Image retrieved successfully"
     )
     return jsonify(response.__dict__)

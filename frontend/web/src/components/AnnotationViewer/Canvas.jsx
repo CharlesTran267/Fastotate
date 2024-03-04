@@ -13,6 +13,7 @@ import {
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
+import { getImage } from '@/stores/imageDatabase';
 
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
@@ -54,10 +55,7 @@ export default function Canvas() {
   const imageElement = useMemo(async () => {
     if (typeof window !== 'undefined' && selectedImage != null) {
       const element = new window.Image();
-      const newImage = hexStringToFile(
-        selectedImage.image,
-        selectedImage.file_name,
-      );
+      const newImage = await getImage(selectedImage.image_id);
       element.src = URL.createObjectURL(newImage);
       return element;
     }
@@ -263,9 +261,18 @@ export default function Canvas() {
     }
   };
 
+  const [mousePosOri, setMousePosOri] = useState([-1, -1]);
+
+  useEffect(() => {
+    let newMousePosOri = relativeToOriginalCoords(mousePos, imageSize, oriSize);
+    // round to 2 decimal places
+    newMousePosOri = newMousePosOri.map((val) => Math.round(val * 100) / 100);
+    setMousePosOri(newMousePosOri);
+  }, [mousePos]);
+
   return (
     <div className="flex-1">
-      <div className="flex items-center justify-center">
+      <div className="flex flex-col items-center justify-center">
         <dialog
           id="setting_image_modal"
           className="modal"
@@ -281,58 +288,65 @@ export default function Canvas() {
         </dialog>
         <div className="max-w-4xl">
           {selectedImage != null ? (
-            <Stage
-              width={imageSize.width || 650}
-              height={imageSize.height || 302}
-              onMouseMove={handleMouseMove}
-              onMouseDown={handleMouseDown}
-              ref={stageRef}
-              draggable={false}
-              dragBoundFunc={dragBoundFunc}
-            >
-              <Layer
-                onContextMenu={(e) => {
-                  e.evt.preventDefault();
-                }}
+            <>
+              <Stage
+                width={imageSize.width || 650}
+                height={imageSize.height || 302}
+                onMouseMove={handleMouseMove}
+                onMouseDown={handleMouseDown}
+                ref={stageRef}
+                draggable={false}
+                dragBoundFunc={dragBoundFunc}
               >
-                <Image
-                  ref={imageRef}
-                  image={image}
-                  x={0}
-                  y={0}
-                  width={imageSize.width}
-                  height={imageSize.height}
-                  onClick={() => sessionActions.setSelectedAnnotationID(null)}
-                />
-                {selectedImage.annotations.map((annotation) => {
-                  return (
-                    <PolygonAnnotation
-                      key={annotation.annotation_id}
-                      annotation={annotation}
-                      mousePos={mousePos}
-                      imageSize={imageSize}
-                      oriSize={oriSize}
-                    />
-                  );
-                })}
-                <PolygonAnnotation
-                  annotation={currentAnnotation}
-                  mousePos={mousePos}
-                  imageSize={imageSize}
-                  oriSize={oriSize}
-                />
-                {annotationMode === AnnotationMode.MAGIC ? (
-                  <MagicAnnotation
-                    magicPoints={magicPoints}
-                    magicLabels={magicLabels}
-                    setMagicPoints={setMagicPoints}
-                    setMagicLabels={setMagicLabels}
+                <Layer
+                  onContextMenu={(e) => {
+                    e.evt.preventDefault();
+                  }}
+                >
+                  <Image
+                    ref={imageRef}
+                    image={image}
+                    x={0}
+                    y={0}
+                    width={imageSize.width}
+                    height={imageSize.height}
+                    onClick={() => sessionActions.setSelectedAnnotationID(null)}
+                  />
+                  {selectedImage.annotations.map((annotation) => {
+                    return (
+                      <PolygonAnnotation
+                        key={annotation.annotation_id}
+                        annotation={annotation}
+                        mousePos={mousePos}
+                        imageSize={imageSize}
+                        oriSize={oriSize}
+                      />
+                    );
+                  })}
+                  <PolygonAnnotation
+                    annotation={currentAnnotation}
+                    mousePos={mousePos}
                     imageSize={imageSize}
                     oriSize={oriSize}
                   />
-                ) : null}
-              </Layer>
-            </Stage>
+                  {annotationMode === AnnotationMode.MAGIC ? (
+                    <MagicAnnotation
+                      magicPoints={magicPoints}
+                      magicLabels={magicLabels}
+                      setMagicPoints={setMagicPoints}
+                      setMagicLabels={setMagicLabels}
+                      imageSize={imageSize}
+                      oriSize={oriSize}
+                    />
+                  ) : null}
+                </Layer>
+              </Stage>
+              <div className="float-end my-4">
+                <p>
+                  X: {mousePosOri[0]}, Y: {mousePosOri[1]}
+                </p>
+              </div>
+            </>
           ) : null}
         </div>
       </div>
