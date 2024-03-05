@@ -32,9 +32,6 @@ class ProjectManagement(Namespace):
         emit("add_annotation", response.__dict__, to=request.sid)
 
     def on_add_annotations(self, data):
-        import time
-
-        start = time.time()
         project_id = data["project_id"]
         image_id = data["image_id"]
         annotations = json.loads(data["annotations"])
@@ -49,7 +46,6 @@ class ProjectManagement(Namespace):
         )
         logger.debug("Finished adding annotations")
         emit("add_annotations", response.__dict__, to=request.sid)
-        logger.debug(f"Time to emit: {time.time() - start}")
 
     def on_modify_annotation(self, data):
         logger.debug("Modifying annotation")
@@ -65,8 +61,8 @@ class ProjectManagement(Namespace):
         response = Response(
             data=project.dict(), status=200, message="Points set successfully"
         )
-        logger.debug("Finished modifying annotation")
         emit("modify_annotation", response.__dict__, to=request.sid)
+        logger.debug(f"Finished modifying annotation")
 
     def on_delete_project(self, data):
         project_id = data["project_id"]
@@ -139,21 +135,17 @@ class ProjectManagement(Namespace):
         logger.debug("Setting magic image")
         project_id = data["project_id"]
         image_id = data["image_id"]
-        image = app.database.get_image(project_id, image_id)
+        image = app.database.get_image(image_id)
         if image is None:
             response = Response(data=None, status=404, message="Image not found")
             emit("set_magic_image", response.__dict__, to=request.sid)
             return
 
-        import io
-        import PIL.Image
-
-        setImage = PIL.Image.open(io.BytesIO(image.image))
         image_embeddings = app.predictor.set_image(
-            np.array(setImage, dtype=np.uint8)[:, :, :3], image.image_embeddings
+            image.image_ndarray, image.image_embeddings
         )
         if image.image_embeddings is None:
-            app.database.set_image_embeddings(project_id, image_id, image_embeddings)
+            app.database.set_image_embeddings(image_id, image_embeddings)
         response = Response(data=None, status=200, message="Image set successfully")
         emit("set_magic_image", response.__dict__, to=request.sid)
 

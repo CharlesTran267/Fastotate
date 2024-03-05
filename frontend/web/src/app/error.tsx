@@ -14,7 +14,7 @@ export default function ErrorPage({ error }: ErrorProps) {
   }, [ref]);
 
   return (
-    <dialog ref={ref} className="modal">
+    <dialog ref={ref} className="modal" id="error_modal">
       <div className="modal-box">
         <h3 className="text-lg font-bold">{error.message}</h3>
         <p className="py-4">You will be returned to the home page</p>

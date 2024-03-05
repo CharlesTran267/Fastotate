@@ -3,17 +3,15 @@
 import dynamic from 'next/dynamic';
 import { useState, useRef, useEffect, useMemo, use } from 'react';
 import { Stage, Layer, Image } from 'react-konva';
-import {
-  hexStringToFile,
-  relativeToOriginalCoords,
-  remToPixels,
-} from '../../utils/utils';
+import { relativeToOriginalCoords, remToPixels } from '../../utils/utils';
 import {
   useAnnotationSessionStore,
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { getImage } from '@/stores/imageDatabase';
+import { set } from 'lodash';
+import { LoadingModal } from '../LoadingModal';
 
 const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
   ssr: false,
@@ -47,6 +45,8 @@ export default function Canvas() {
   const [oriSize, setOriSize] = useState({});
 
   const [mousePos, setMousePos] = useState([0, 0]);
+  const [mousePosOri, setMousePosOri] = useState([-1, -1]);
+
   const [currentAnnotation, setCurrentAnnotation] = useState(new Annotation());
 
   const [magicPoints, setMagicPoints] = useState([]);
@@ -92,10 +92,6 @@ export default function Canvas() {
       });
   }, [imageElement]);
 
-  const getMousePos = (stage) => {
-    return [stage.getPointerPosition().x, stage.getPointerPosition().y];
-  };
-
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (
@@ -128,6 +124,10 @@ export default function Canvas() {
   }, [currentAnnotation]);
 
   useEffect(() => {
+    if (annotationMode !== AnnotationMode.MAGIC) {
+      setMagicPoints([]);
+      setMagicLabels([]);
+    }
     if (
       annotationMode !== AnnotationMode.POLYGON ||
       annotationMode !== AnnotationMode.RECTANGLE
@@ -135,6 +135,28 @@ export default function Canvas() {
       setCurrentAnnotation(new Annotation());
     }
   }, [annotationMode]);
+
+  useEffect(() => {
+    setCurrentAnnotation(new Annotation());
+    setMagicPoints([]);
+    setMagicLabels([]);
+  }, [selectedImageID]);
+
+  const getMousePos = (stage) => {
+    return [stage.getPointerPosition().x, stage.getPointerPosition().y];
+  };
+
+  const handleMouseMove = (e) => {
+    const stage = e.target.getStage();
+    const mousePos = getMousePos(stage);
+    setMousePos(mousePos);
+    const newMousePosOri = relativeToOriginalCoords(
+      mousePos,
+      imageSize,
+      oriSize,
+    );
+    setMousePosOri(newMousePosOri);
+  };
 
   //drawing begins when mousedown event fires.
   const handleMouseDown = (e) => {
@@ -147,11 +169,8 @@ export default function Canvas() {
     )
       return;
 
-    const stage = e.target.getStage();
-    const mousePos = getMousePos(stage);
-    const mouseOriPos = relativeToOriginalCoords(mousePos, imageSize, oriSize);
     if (annotationMode === AnnotationMode.MAGIC) {
-      setMagicPoints([...magicPoints, mouseOriPos]);
+      setMagicPoints([...magicPoints, mousePosOri]);
       if (e.evt.button === 2) {
         setMagicLabels([...magicLabels, 0]);
       } else if (e.evt.button === 0) {
@@ -162,14 +181,8 @@ export default function Canvas() {
 
     setCurrentAnnotation({
       ...currentAnnotation,
-      points: [...currentAnnotation.points, mouseOriPos],
+      points: [...currentAnnotation.points, mousePosOri],
     });
-  };
-
-  const handleMouseMove = (e) => {
-    const stage = e.target.getStage();
-    const mousePos = getMousePos(stage);
-    setMousePos(mousePos);
   };
 
   useEffect(() => {
@@ -248,44 +261,19 @@ export default function Canvas() {
     };
   }, [stageRef.current]);
 
-  useEffect(() => {
-    if (annotationMode !== AnnotationMode.MAGIC) {
-      setMagicPoints([]);
-    }
-  }, [annotationMode]);
-
-  const handleKeyDownDialog = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  const [mousePosOri, setMousePosOri] = useState([-1, -1]);
-
-  useEffect(() => {
-    let newMousePosOri = relativeToOriginalCoords(mousePos, imageSize, oriSize);
-    // round to 2 decimal places
-    newMousePosOri = newMousePosOri.map((val) => Math.round(val * 100) / 100);
-    setMousePosOri(newMousePosOri);
-  }, [mousePos]);
+  const loading = useAnnotationSessionStore((state) => state.loading);
 
   return (
     <div className="flex-1">
       <div className="flex flex-col items-center justify-center">
-        <dialog
-          id="setting_image_modal"
-          className="modal"
-          onKeyDown={handleKeyDownDialog}
-        >
-          <div className="modal-box">
-            <div className="flex">
-              <h3 className="text-lg font-bold">Encoding Image</h3>
-              <span className="loading loading-spinner loading-sm mx-3"></span>
-            </div>
-            <p className="py-4"> This may take longer on the first try</p>
-          </div>
-        </dialog>
+        {loading ? (
+          <span className="loading loading-spinner loading-lg"></span>
+        ) : null}
+        <LoadingModal
+          modal_id="setting_image_modal"
+          modal_title="Encoding Image"
+          modal_message="This may take longer on the first try"
+        />
         <div className="max-w-4xl">
           {selectedImage != null ? (
             <>
@@ -320,6 +308,7 @@ export default function Canvas() {
                         mousePos={mousePos}
                         imageSize={imageSize}
                         oriSize={oriSize}
+                        isFinished={true}
                       />
                     );
                   })}
@@ -328,6 +317,7 @@ export default function Canvas() {
                     mousePos={mousePos}
                     imageSize={imageSize}
                     oriSize={oriSize}
+                    isFinished={false}
                   />
                   {annotationMode === AnnotationMode.MAGIC ? (
                     <MagicAnnotation
@@ -343,7 +333,8 @@ export default function Canvas() {
               </Stage>
               <div className="float-end my-4">
                 <p>
-                  X: {mousePosOri[0]}, Y: {mousePosOri[1]}
+                  X: {Math.round(mousePosOri[0] * 100) / 100}, Y:{' '}
+                  {Math.round(mousePosOri[1] * 100) / 100}
                 </p>
               </div>
             </>

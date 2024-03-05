@@ -48,8 +48,11 @@ export default function MagicAnnotation(props) {
   }, [socketResponse]);
 
   useEffect(() => {
-    if (annotationMode !== AnnotationMode.MAGIC || magicPoints.length === 0)
+    if (annotationMode !== AnnotationMode.MAGIC || magicPoints.length === 0) {
+      setCurrentPointGroups([]);
+      setFlattenPoints([]);
       return;
+    }
     sessionActions.setMagicPoints(magicPoints, magicLabels);
   }, [magicPoints, magicLabels]);
 

@@ -36,33 +36,23 @@ function getFileExtension(fileName: string): string {
   return parts.length > 1 ? parts[parts.length - 1] : '';
 }
 
-export const hexStringToFile = (hexString: string, fileName: string) => {
-  const mimeType = `image/${getFileExtension(fileName)}`;
-  function hexStringToByteArray(hexString: string): Uint8Array {
-    if (hexString.length % 2 !== 0) {
-      throw new Error('Invalid hexString');
-    }
-    const byteArray = new Uint8Array(hexString.length / 2);
-    for (let i = 0; i < byteArray.length; i++) {
-      byteArray[i] = parseInt(hexString.substr(i * 2, 2), 16);
-    }
-    return byteArray;
+export const base64ToFile = (base64String: string, filename: string) => {
+  // Convert the base64 string to a Blob
+  const byteCharacters = atob(base64String);
+  const byteArrays = [];
+
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteArrays.push(byteCharacters.charCodeAt(i));
   }
 
-  // Step 2: Convert Byte Array to Blob
-  function byteArrayToBlob(byteArray: Uint8Array, mimeType: string): Blob {
-    return new Blob([byteArray], { type: mimeType });
-  }
+  const byteArray = new Uint8Array(byteArrays);
 
-  // Convert hex string to byte array
-  const byteArray = hexStringToByteArray(hexString);
+  const fileExt = getFileExtension(filename);
+  const mime = `image/${fileExt}`;
 
-  // Convert byte array to Blob (specify the correct MIME type)
-  const blob = byteArrayToBlob(byteArray, mimeType);
-
-  // Step 3: Convert Blob to File
-  const file = new File([blob], fileName, { type: mimeType });
-  return file;
+  const blob = new Blob([byteArray], { type: mime });
+  // Convert the Blob to a File
+  return new File([blob], filename, { type: mime });
 };
 
 export const relativeToOriginalCoords = (
@@ -80,7 +70,7 @@ export const relativeToOriginalCoords = (
   points.map((p: number[]) => {
     const p0 = (p[0] / newSize.width) * oriSize.width;
     const p1 = (p[1] / newSize.height) * oriSize.height;
-    ans.push([p0, p1]);
+    if (!isNaN(p0) && !isNaN(p1)) ans.push([p0, p1]);
   });
   return ans;
 };
@@ -100,7 +90,7 @@ export const originalToRelativeCoords = (
   points.map((p: number[]) => {
     const p0 = (p[0] / oriSize.width) * newSize.width;
     const p1 = (p[1] / oriSize.height) * newSize.height;
-    ans.push([p0, p1]);
+    if (!isNaN(p0) && !isNaN(p1)) ans.push([p0, p1]);
   });
   return ans;
 };

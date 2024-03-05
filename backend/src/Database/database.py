@@ -1,8 +1,10 @@
 import redis
 from typing import List
-from .models import Project, ImageAnnotation, Annotation
+from .models import Project, ImageAnnotation, Annotation, Image
 from ..logger import logger
 import torch
+import io
+import PIL.Image
 
 
 class Database:
@@ -18,7 +20,8 @@ class Database:
             logger.debug(f"Project {projectId} not found")
             raise KeyError(f"Project {projectId} not found")
         project_data = self.db.get(projectId)
-        return Project.parse_raw(project_data)
+        project = Project.parse_raw(project_data)
+        return project
 
     def store_project(self, project: Project) -> None:
         self.db.set(project.project_id, project.json())
@@ -26,7 +29,7 @@ class Database:
     def delete_project(self, projectId: str) -> None:
         self.db.delete(projectId)
 
-    def get_image(self, projectId: str, imageId: str) -> ImageAnnotation:
+    def get_image_annotation(self, projectId: str, imageId: str) -> ImageAnnotation:
         project = self.get_project(projectId)
         return project.getImageAnnotation(imageId)
 
@@ -39,11 +42,17 @@ class Database:
         self, file_name: str, image: bytes, projectId: str
     ) -> ImageAnnotation:
         project = self.get_project(projectId)
-        newImage = ImageAnnotation()
-        newImage.file_name = file_name
-        newImage.image = image
-        project.addImageAnnotation(newImage)
+        imageObj = PIL.Image.open(io.BytesIO(image))
+        width, height = imageObj.size
+        logger.debug(f"Image size: {width}x{height}")
+        newImageAnnotation = ImageAnnotation(
+            file_name=file_name, width=width, height=height
+        )
+        project.addImageAnnotation(newImageAnnotation)
         self.store_project(project)
+
+        newImage = Image(image_bytes=image, image_id=newImageAnnotation.image_id)
+        self.store_image(newImage)
         return newImage
 
     def add_new_annotation(
@@ -98,10 +107,19 @@ class Database:
         project.setDefaultClass(className)
         self.store_project(project)
 
-    def set_image_embeddings(
-        self, projectId: str, imageId: str, embeddings: torch.Tensor
-    ) -> None:
-        project = self.get_project(projectId)
-        image = project.getImageAnnotation(imageId)
-        image.setImageEmbeddings(embeddings)
-        self.store_project(project)
+    def set_image_embeddings(self, imageId: str, embeddings: torch.Tensor) -> None:
+        image = self.get_image(imageId)
+        image.image_embeddings = embeddings
+        self.store_image(image)
+
+    def store_image(self, image: Image) -> None:
+        self.db.set(image.image_id, image.json())
+
+    def get_image(self, imageID: str) -> Image:
+        if not self.db.exists(imageID):
+            logger.debug(f"Image {imageID} not found")
+            raise KeyError(f"Image {imageID} not found")
+
+        image_data = self.db.get(imageID)
+        image = Image.parse_raw(image_data)
+        return image

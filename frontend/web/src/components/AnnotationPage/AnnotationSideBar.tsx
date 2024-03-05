@@ -18,15 +18,33 @@ export default function AnnotationSideBar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 's') {
+      const modalList = [
+        'error_modal',
+        'add_new_class_modal',
+        'edit_project_name_modal',
+        'setting_image_modal',
+        'exporting_modal',
+      ];
+      for (const modal of modalList) {
+        const modalElement = document.getElementById(
+          modal,
+        ) as HTMLDialogElement;
+        if (modalElement && modalElement.open) {
+          return;
+        }
+      }
+      if (e.key === 's' || e.key === 'S') {
         actions.setAnnotationMode(AnnotationMode.SELECT);
-      } else if (e.key === 'p') {
+      } else if (e.key === 'p' || e.key === 'P') {
         actions.setAnnotationMode(AnnotationMode.POLYGON);
-      } else if (e.key === 'r') {
+      } else if (e.key === 'r' || e.key === 'R') {
         actions.setAnnotationMode(AnnotationMode.RECTANGLE);
-      } else if (e.key === 'd' && annotationMode === AnnotationMode.SELECT) {
+      } else if (
+        (e.key === 'd' || e.key === 'D') &&
+        annotationMode === AnnotationMode.SELECT
+      ) {
         handleDeleteSelectedAnnotation();
-      } else if (e.key === 'm') {
+      } else if (e.key === 'm' || e.key === 'M') {
         actions.setAnnotationMode(AnnotationMode.MAGIC);
       }
     };

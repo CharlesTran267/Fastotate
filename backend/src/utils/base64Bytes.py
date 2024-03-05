@@ -1,21 +1,22 @@
 from pydantic import PlainValidator, PlainSerializer, errors, WithJsonSchema
 from typing_extensions import Annotated
 from typing import Any
+import base64
 
 
-def hex_bytes_validator(o: Any) -> bytes:
+def base64_bytes_validator(o: Any) -> bytes:
     if isinstance(o, bytes):
         return o
     elif isinstance(o, bytearray):
         return bytes(o)
     elif isinstance(o, str):
-        return bytes.fromhex(o)
+        return base64.b64decode(o.encode("utf-8"))
     raise errors.BytesError()
 
 
-HexBytes = Annotated[
+base64Bytes = Annotated[
     bytes,
-    PlainValidator(hex_bytes_validator),
-    PlainSerializer(lambda b: b.hex()),
+    PlainValidator(base64_bytes_validator),
+    PlainSerializer(lambda b: base64.b64encode(b).decode("utf-8")),
     WithJsonSchema({"type": "string"}),
 ]

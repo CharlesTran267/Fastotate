@@ -3,13 +3,12 @@ import { create } from 'zustand';
 import axios from 'axios';
 import { socket } from '@/utils/socket';
 import { addImage, deleteImage } from './imageDatabase';
-import { hexStringToFile } from '@/utils/utils';
+import { base64ToFile } from '@/utils/utils';
 
 export class Annotation {
   annotation_id: string;
   points: number[];
   className: string;
-  isFinished: boolean;
 
   constructor();
   constructor(data: any);
@@ -18,13 +17,11 @@ export class Annotation {
       this.annotation_id = '';
       this.points = [];
       this.className = '';
-      this.isFinished = false;
       return;
     }
     this.annotation_id = data.annotation_id;
     this.points = data.points;
     this.className = data.className;
-    this.isFinished = true;
   }
 }
 
@@ -55,10 +52,6 @@ export class Project {
     this.classes = data.classes;
     this.default_class = data.default_class;
     this.imageAnnotations = data.imageAnnotations.map((image: any) => {
-      // const imageInDB = await getImage(image.image_id);
-      // if (imageInDB == null) {
-      //   await addImage(hexStringToFile(image.image, image.file_name), image.image_id);
-      // }
       const newImage = new ImageAnnotation(image);
       return newImage;
     });
@@ -73,6 +66,7 @@ type AnntationSessionStore = {
   zoomLevel: number;
   zoomCenter: { x: number; y: number };
   response: object | null;
+  loading: boolean;
   actions: {
     createProject: () => string | Promise<string> | null;
     updateProject: (project_id: string) => void;
@@ -100,6 +94,7 @@ type AnntationSessionStore = {
     setZoomCenter: (x: number, y: number) => void;
     setMagicImage: (image_id: string) => void;
     setMagicPoints: (points: number[], labels: number[]) => void;
+    getProjectCOCOformat: () => object;
   };
 };
 
@@ -117,7 +112,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
 
     socket.on('get_project', (data: any) => {
       console.log('Project updated');
-      set(() => ({ project: new Project(data.data) }));
+      set(() => ({ project: new Project(data.data), loading: false }));
     });
 
     socket.on('add_annotation', (data: any) => {
@@ -180,6 +175,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
       zoomLevel: 1,
       zoomCenter: { x: 0, y: 0 },
       response: null,
+      loading: false,
       actions: {
         createProject: async () => {
           try {
@@ -192,6 +188,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           }
         },
         updateProject: (project_id: string) => {
+          set(() => ({ loading: true }));
           socket.emit('get_project', { project_id: project_id });
         },
         setAnnotationMode: (mode: AnnotationMode) =>
@@ -220,12 +217,8 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             set(() => ({
               project: new Project(response.data.data['project']),
             }));
-            const image = response.data.data['image'];
-            const imageFile = hexStringToFile(
-              image['image_byteString'],
-              image['file_name'],
-            );
-            await addImage(imageFile, image['image_id']);
+            const image_id = response.data.data['image']['image_id'];
+            await addImage(image, image_id);
           } catch (error) {
             console.error('Error uploading image:', error);
           }
@@ -359,6 +352,15 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             image_id: get().selectedImageID,
             annotations: JSON.stringify(annotations),
           });
+        },
+        getProjectCOCOformat: async () => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          const response = await axios.get(
+            `${backendURL}/get-coco-format?project_id=${project_id}`,
+          );
+          return response.data.data;
         },
       },
     };

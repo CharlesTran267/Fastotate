@@ -1,11 +1,10 @@
 from ...logger import logger
-from typing import List, Any
+from typing import List, Any, Optional
 from .annotation import Annotation
 import uuid
 import torch
 import base64
 from pydantic import BaseModel, Field, field_serializer
-from ...utils.hexBytes import HexBytes
 from ...utils.serialisableTensor import TorchTensor
 
 
@@ -13,8 +12,8 @@ class ImageAnnotation(BaseModel):
     image_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     annotations: List[Annotation] = []
     file_name: str = None
-    image: HexBytes = None
-    image_embeddings: TorchTensor = None
+    width: Optional[int] = 0
+    height: Optional[int] = 0
 
     def addAnnotation(self, annotation: Annotation) -> None:
         self.annotations.append(annotation)
@@ -31,6 +30,3 @@ class ImageAnnotation(BaseModel):
             if ann.annotation_id == annotationId:
                 return ann
         logger.warning(f"Annotation {annotationId} not in annotations list")
-
-    def setImageEmbeddings(self, embeddings: torch.Tensor) -> None:
-        self.image_embeddings = embeddings
