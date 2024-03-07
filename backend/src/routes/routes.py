@@ -52,3 +52,42 @@ def get_coco_format():
     coco = exportProjectToCOCO(project)
     response = Response(data=coco, status=200, message="Project exported successfully")
     return jsonify(response.__dict__)
+
+@app.route("/api/register", methods=["POST"])
+def register():
+    data = request.form
+    email = data["email"]
+    password = data["password"]
+    try:
+        app.database.add_new_user(email, password)
+    except KeyError:
+        response = Response(data=None, status=400, message="User already exists")
+        return jsonify(response.__dict__)
+
+    response = Response(data=None, status=200, message="User registered successfully")
+    return jsonify(response.__dict__)
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.form
+    email = data["email"]
+    password = data["password"]
+
+    try:
+        session_token = app.database.user_login(email, password)
+    except KeyError:
+        response = Response(data=None, status=400, message="User not found")
+        return jsonify(response.__dict__)
+
+    response = Response(data=session_token, status=200, message="User logged in successfully")
+    return jsonify(response.__dict__)
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    data = request.form
+    session_token = data["session_token"]
+
+    app.database.user_logout(session_token)
+
+    response = Response(data=None, status=200, message="User logged out successfully")
+    return jsonify(response.__dict__)

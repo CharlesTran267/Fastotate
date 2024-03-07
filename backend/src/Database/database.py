@@ -123,3 +123,32 @@ class Database:
         image_data = self.db.get(imageID)
         image = Image.parse_raw(image_data)
         return image
+    
+    def add_new_user(self, email: str, pass_word: str) -> None:
+        if self.db.exists(hash(email)):
+            logger.debug(f"User {email} already exists")
+            raise KeyError(f"User {email} already exists")
+            
+        hashed_password = hash(pass_word)
+        user = User(email=email, hashed_password=hashed_password)
+        self.db.set(hash(user.email), user.json())
+    
+    def user_login(self, email: str, pass_word: str) -> str:
+        hashed_email = hash(email)
+        if not self.db.exists(hashed_email):
+            logger.debug(f"User {email} not found")
+            raise KeyError(f"User {email} not found")
+        
+        user_data = self.db.get(hashed_email)
+        user = User.parse_raw(user_data)
+        if user.hashed_password == hash(pass_word):
+            session = LoginSession(user_id=user.user_id, expiry=3600)
+            self.db.set(session.session_token, session.json())
+            return session.session_token
+        else:
+            raise ValueError("Invalid password")
+    
+    def user_logout(self, session_token: str) -> None:
+        self.db.delete(session_token)
+
+
