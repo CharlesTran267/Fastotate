@@ -67,7 +67,6 @@ type AnntationSessionStore = {
     response: object | null;
     loading: boolean;
     actions: {
-        createProject: () => string | Promise<string> | null;
         updateProject: (project_id: string) => void;
         setAnnotationMode: (mode: AnnotationMode) => void;
         setSelectedImageID: (imageID: string) => void;
@@ -176,20 +175,6 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             response: null,
             loading: false,
             actions: {
-                createProject: async () => {
-                    try {
-                        const response = await axios.post(
-                            `${backendURL}/create-project`,
-                        );
-                        set(() => ({
-                            project: new Project(response.data.data),
-                        }));
-                        return response.data.data.project_id;
-                    } catch (error) {
-                        console.error('Error creating project:', error);
-                        return null;
-                    }
-                },
                 updateProject: (project_id: string) => {
                     set(() => ({ loading: true }));
                     socket.emit('get_project', { project_id: project_id });

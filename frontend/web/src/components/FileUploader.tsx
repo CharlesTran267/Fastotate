@@ -1,16 +1,20 @@
 'use client';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
+import { useUserSessionStore } from '@/stores/useUserSessionStore';
 import { useRouter } from 'next/navigation';
+import { createProject } from '@/utils/utils';
 
 export default function FileUploader() {
     const sessionActions = useAnnotationSessionStore((state) => state.actions);
+    const session_token = useUserSessionStore((state) => state.session_token);
+
     const router = useRouter();
     const handleFileInputChange = async (
         e: React.ChangeEvent<HTMLInputElement>,
     ) => {
         const files = e.target.files;
         if (files) {
-            const project_id = await sessionActions.createProject();
+            const project_id = await createProject(session_token);
             if (!project_id) return;
             for (let i = 0; i < files.length; i++) {
                 await sessionActions.uploadImage(files[i], project_id!);

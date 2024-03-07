@@ -1,10 +1,11 @@
 import redis
 from typing import List
-from .models import Project, ImageAnnotation, Annotation, Image
+from .models import Project, ImageAnnotation, Annotation, Image, User, LoginSession
 from ..logger import logger
 import torch
 import io
 import PIL.Image
+from ..utils.utils import hashString
 
 
 class Database:
@@ -26,7 +27,13 @@ class Database:
     def store_project(self, project: Project) -> None:
         self.db.set(project.project_id, project.json())
 
-    def delete_project(self, projectId: str) -> None:
+    def delete_project(self, projectId: str, session_token: str) -> None:
+        user = self.get_user(session_token)
+        if user is None:
+            logger.debug("No user found")
+            return
+        user.projects.remove(projectId)
+        self.db.set(user.user_id, user.json())
         self.db.delete(projectId)
 
     def get_image_annotation(self, projectId: str, imageId: str) -> ImageAnnotation:
@@ -123,32 +130,68 @@ class Database:
         image_data = self.db.get(imageID)
         image = Image.parse_raw(image_data)
         return image
-    
+
     def add_new_user(self, email: str, pass_word: str) -> None:
-        if self.db.exists(hash(email)):
+        user_id = hashString(email)
+        if self.db.exists(user_id):
             logger.debug(f"User {email} already exists")
             raise KeyError(f"User {email} already exists")
-            
-        hashed_password = hash(pass_word)
+
+        hashed_password = hashString(pass_word)
         user = User(email=email, hashed_password=hashed_password)
-        self.db.set(hash(user.email), user.json())
-    
+        self.db.set(user.user_id, user.json())
+
     def user_login(self, email: str, pass_word: str) -> str:
-        hashed_email = hash(email)
-        if not self.db.exists(hashed_email):
+        user_id = hashString(email)
+        if not self.db.exists(user_id):
             logger.debug(f"User {email} not found")
             raise KeyError(f"User {email} not found")
-        
-        user_data = self.db.get(hashed_email)
+
+        user_data = self.db.get(user_id)
         user = User.parse_raw(user_data)
-        if user.hashed_password == hash(pass_word):
+        if user.hashed_password == hashString(pass_word):
             session = LoginSession(user_id=user.user_id, expiry=3600)
             self.db.set(session.session_token, session.json())
             return session.session_token
         else:
             raise ValueError("Invalid password")
-    
+
     def user_logout(self, session_token: str) -> None:
         self.db.delete(session_token)
 
+    def get_user(self, session_token: str) -> User:
+        if session_token is None:
+            logger.debug("No session token provided")
+            return None
 
+        if not self.db.exists(session_token):
+            logger.debug(f"Session {session_token} not found")
+            raise KeyError(f"Session {session_token} not found")
+
+        session_data = self.db.get(session_token)
+        session = LoginSession.parse_raw(session_data)
+        user_data = self.db.get(session.user_id)
+        user = User.parse_raw(user_data)
+        return user
+
+    def add_project_to_user(self, session_token: str, project_id: str) -> None:
+        user = self.get_user(session_token)
+        if user is None:
+            logger.debug("No user found")
+            return
+        user.addProject(project_id)
+        self.db.set(user.user_id, user.json())
+
+    def get_projects_for_user(self, session_token: str) -> List[Project]:
+        user = self.get_user(session_token)
+        if user is None:
+            logger.debug("No user found")
+            return []
+        projects_sum = []
+        for project_id in user.projects:
+            try:
+                project = self.get_project(project_id)
+                projects_sum.append(project.getProjectSummary())
+            except KeyError:
+                logger.warning(f"Project {project_id} not found")
+        return projects_sum

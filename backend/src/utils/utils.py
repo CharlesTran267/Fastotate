@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 from ..Database.models import Project
 from datetime import datetime, timezone
+import hashlib
+
+
+def hashString(string: str) -> str:
+    return hashlib.sha256(string.encode()).hexdigest()
 
 
 def findVerticesFromMasks(masks: np.ndarray):

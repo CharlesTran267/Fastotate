@@ -1,20 +1,72 @@
 import { useState } from 'react';
 import { BiSolidHide, BiSolidShow } from 'react-icons/bi';
+import axios from 'axios';
+import { set } from 'lodash';
+import { useUserSessionStore } from '@/stores/useUserSessionStore';
+
+type FormData = {
+    email: string;
+    password: string;
+};
+
 export default function LoginModal() {
+    const userSessionActions = useUserSessionStore((state) => state.actions);
+
     const [showPassword, setShowPassword] = useState(false);
     const handleShowPassword = () => {
         setShowPassword(!showPassword);
     };
 
-    const [email, setEmail] = useState<string | null>();
-    const [password, setPassword] = useState<string | null>();
+    const [formData, setFormData] = useState<FormData>({
+        email: '',
+        password: '',
+    });
 
-    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setEmail(e.target.value);
+    const [formErros, setFormErrors] = useState<FormData>({
+        email: '',
+        password: '',
+    });
+
+    const handleFormDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
     };
 
-    const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setPassword(e.target.value);
+    const validateForm = (values: FormData) => {
+        const errors = {} as any;
+
+        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+        if (!values.email) {
+            errors.email = 'Email is required';
+        } else if (!regex.test(values.email)) {
+            errors.email = 'Invalid email format';
+        }
+        if (!values.password) {
+            errors.password = 'Password is required';
+        }
+        return errors;
+    };
+
+    const handleSubmit = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        const errors = validateForm(formData);
+        if (Object.keys(errors).length === 0) {
+            console.log('Form is valid! Submitting...');
+            const response = await userSessionActions.login(
+                formData.email,
+                formData.password,
+            );
+            if (response?.status !== 200) {
+                const message = response.message;
+                if (message.includes('password')) {
+                    setFormErrors({ ...formErros, password: message });
+                } else {
+                    setFormErrors({ ...formErros, email: message });
+                }
+            }
+        } else {
+            setFormErrors(errors);
+        }
     };
 
     const openForgotPasswordModal = () => {
@@ -64,9 +116,12 @@ export default function LoginModal() {
                                 type="text"
                                 className="grow bg-inherit"
                                 placeholder="Email"
-                                onChange={handleEmailChange}
+                                name="email"
+                                value={formData.email}
+                                onChange={handleFormDataChange}
                             />
                         </label>
+                        <p className="text-error">{formErros.email}</p>
                     </div>
                     <div className="form-control">
                         <label className="input input-bordered my-2 flex items-center gap-2">
@@ -85,7 +140,9 @@ export default function LoginModal() {
                                 type={showPassword ? 'text' : 'password'}
                                 className="grow bg-inherit"
                                 placeholder="Password"
-                                onChange={handlePasswordChange}
+                                name="password"
+                                value={formData.password}
+                                onChange={handleFormDataChange}
                             />
                             <button
                                 type="button"
@@ -99,6 +156,7 @@ export default function LoginModal() {
                                 )}
                             </button>
                         </label>
+                        <p className="text-error">{formErros.password}</p>
                     </div>
                     <div className="mt-2 flex flex-col text-xs">
                         <a
@@ -118,6 +176,7 @@ export default function LoginModal() {
                         <button
                             type="submit"
                             className="btn btn-success mx-2 font-black"
+                            onClick={handleSubmit}
                         >
                             Login
                         </button>

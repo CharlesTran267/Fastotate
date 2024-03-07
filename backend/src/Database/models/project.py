@@ -54,3 +54,12 @@ class Project(BaseModel):
             f"ImageAnnotation {imageAnnotationId} not in imageAnnotations list"
         )
         return None
+
+    def getProjectSummary(self) -> dict:
+        return {
+            "project_id": self.project_id,
+            "name": self.name,
+            "classes": self.classes,
+            "default_class": self.default_class,
+            "num_images": len(self.imageAnnotations),
+        }

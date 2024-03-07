@@ -3,11 +3,16 @@ from ..app import app
 from ..utils.response import Response
 from ..utils.utils import exportProjectToCOCO
 import base64
+from src.logger import logger
 
 
 @app.route("/api/create-project", methods=["POST"])
 def create_project():
+    data = request.json
+    session_token = data["token"]
+    logger.debug(f"Creating project for user {session_token}")
     project = app.database.add_new_project()
+    app.database.add_project_to_user(session_token, project.project_id)
     response = Response(
         data=project.dict(), status=200, message="Project created successfully"
     )
@@ -53,7 +58,8 @@ def get_coco_format():
     response = Response(data=coco, status=200, message="Project exported successfully")
     return jsonify(response.__dict__)
 
-@app.route("/api/register", methods=["POST"])
+
+@app.route("/api/signup", methods=["POST"])
 def register():
     data = request.form
     email = data["email"]
@@ -67,6 +73,7 @@ def register():
     response = Response(data=None, status=200, message="User registered successfully")
     return jsonify(response.__dict__)
 
+
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.form
@@ -78,16 +85,55 @@ def login():
     except KeyError:
         response = Response(data=None, status=400, message="User not found")
         return jsonify(response.__dict__)
+    except ValueError:
+        response = Response(data=None, status=400, message="Incorrect password")
+        return jsonify(response.__dict__)
 
-    response = Response(data=session_token, status=200, message="User logged in successfully")
+    response = Response(
+        data=session_token, status=200, message="User logged in successfully"
+    )
     return jsonify(response.__dict__)
+
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
-    data = request.form
-    session_token = data["session_token"]
+    data = request.json
+    session_token = data["token"]
 
     app.database.user_logout(session_token)
 
     response = Response(data=None, status=200, message="User logged out successfully")
+    return jsonify(response.__dict__)
+
+
+@app.route("/api/get-projects-summary", methods=["GET"])
+def get_projects():
+    session_token = request.args.get("session_token")
+    projects = app.database.get_projects_for_user(session_token)
+    response = Response(
+        data=projects, status=200, message="Projects retrieved successfully"
+    )
+    return jsonify(response.__dict__)
+
+
+@app.route("/api/delete-project", methods=["POST"])
+def delete_project():
+    data = request.json
+    session_token = data["token"]
+    project_id = data["project_id"]
+    app.database.delete_project(project_id, session_token)
+    response = Response(data=None, status=200, message="Project deleted successfully")
+    return jsonify(response.__dict__)
+
+
+@app.route("/api/change-project-name", methods=["POST"])
+def change_project_name():
+    data = request.json
+    session_token = data["token"]
+    project_id = data["project_id"]
+    new_name = data["name"]
+    app.database.change_project_name(project_id, new_name)
+    response = Response(
+        data=None, status=200, message="Project name changed successfully"
+    )
     return jsonify(response.__dict__)

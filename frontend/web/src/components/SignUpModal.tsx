@@ -1,6 +1,6 @@
-import { repeat } from 'lodash';
 import { useState } from 'react';
 import { BiSolidHide, BiSolidShow } from 'react-icons/bi';
+import axios from 'axios';
 
 type FormData = {
     email: string;
@@ -32,11 +32,7 @@ export default function SignUpModal() {
     });
 
     const validateForm = (values: FormData) => {
-        const errors = {
-            email: '',
-            password: '',
-            repeatPassword: '',
-        };
+        const errors = {} as any;
 
         const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
         if (!values.email) {
@@ -55,13 +51,21 @@ export default function SignUpModal() {
         return errors;
     };
 
-    const handleSubmit = (e: React.MouseEvent) => {
-        console.log('Form submitted');
+    const handleSubmit = async (e: React.MouseEvent) => {
         e.preventDefault();
         const errors = validateForm(formData);
         if (Object.keys(errors).length === 0) {
-            console.log('Form is valid! Submitting...', formData);
-            // Submit form logic here
+            console.log('Form is valid! Submitting...');
+            const backendURL = process.env.NEXT_PUBLIC_API_URL;
+            const form = new FormData();
+            form.append('email', formData.email);
+            form.append('password', formData.password);
+            const response = await axios.post(`${backendURL}/signup`, form);
+            if (response.data.message === 'User already exists') {
+                setFormErrors({ email: 'Email already exists' } as FormData);
+            } else if (response.data.status === 200) {
+                console.log('User created successfully');
+            }
         } else {
             setFormErrors(errors);
         }

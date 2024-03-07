@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export const dragBoundFunc = (
     stageWidth: number,
     stageHeight: number,
@@ -93,4 +95,17 @@ export const originalToRelativeCoords = (
         if (!isNaN(p0) && !isNaN(p1)) ans.push([p0, p1]);
     });
     return ans;
+};
+
+export const createProject = async (session_token: string | null) => {
+    const backendURL = process.env.NEXT_PUBLIC_API_URL;
+    try {
+        const response = await axios.post(`${backendURL}/create-project`, {
+            token: session_token,
+        });
+        return response.data.data.project_id;
+    } catch (error) {
+        console.error('Error creating project:', error);
+        return null;
+    }
 };
