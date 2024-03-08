@@ -11,8 +11,7 @@ def create_project():
     data = request.json
     session_token = data["token"]
     logger.debug(f"Creating project for user {session_token}")
-    project = app.database.add_new_project()
-    app.database.add_project_to_user(session_token, project.project_id)
+    project = app.database.add_new_project(session_token=session_token)
     response = Response(
         data=project.dict(), status=200, message="Project created successfully"
     )
@@ -136,4 +135,14 @@ def change_project_name():
     response = Response(
         data=None, status=200, message="Project name changed successfully"
     )
+    return jsonify(response.__dict__)
+
+
+@app.route("/api/save-project", methods=["POST"])
+def save_project():
+    data = request.json
+    user_email = data["email"]
+    project_id = data["project_id"]
+    app.database.save_project_to_db(user_email, project_id)
+    response = Response(data=None, status=200, message="Project saved successfully")
     return jsonify(response.__dict__)

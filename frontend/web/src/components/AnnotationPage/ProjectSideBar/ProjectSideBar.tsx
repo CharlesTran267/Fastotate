@@ -6,15 +6,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { useParams } from 'next/navigation';
 import { LoadingModal } from '@/components/LoadingModal';
+import { useUserSessionStore } from '@/stores/useUserSessionStore';
 
 export default function ProjectSideBar() {
   const projectId = useParams().project_id as string;
+
+  const userSessionActions = useUserSessionStore((state) => state.actions);
+  const session_token = useUserSessionStore((state) => state.session_token);
 
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
   const selectedImageID = useAnnotationSessionStore(
     (state) => state.selectedImageID,
   );
-  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handledeleteImage = () => {
     if (selectedImageID) {
@@ -23,16 +27,18 @@ export default function ProjectSideBar() {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = e.target.files;
     if (files) {
       for (let i = 0; i < files.length; i++) {
-        sessionActions.uploadImage(files[i], projectId);
+        await sessionActions.uploadImage(files[i], projectId);
       }
     }
   };
   const handleExportProject = async () => {
-    setDownloadLoading(true);
+    setLoading(true);
     const exportedData = await sessionActions.getProjectCOCOformat();
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
       JSON.stringify(exportedData),
@@ -43,7 +49,53 @@ export default function ProjectSideBar() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setDownloadLoading(false);
+    setTimeout(() => {
+      setLoading(false);
+    }, 500);
+  };
+
+  const handleSaveProject = async () => {
+    if (session_token === null) {
+      const modal = document.getElementById(
+        'save_project_warning_modal',
+      ) as HTMLDialogElement;
+      if (modal == null) return;
+      modal.showModal();
+      return;
+    }
+    const modal = document.getElementById('saving_modal') as HTMLDialogElement;
+    if (modal == null) return;
+    modal.showModal();
+    await userSessionActions.saveProject(projectId);
+    setTimeout(() => {
+      modal.close();
+    }, 500);
+  };
+
+  const handleOpenLoginModal = () => {
+    const modal = document.getElementById('login_modal') as HTMLDialogElement;
+    if (modal == null) return;
+    modal.showModal();
+
+    // Close current modal
+    const cur_modal = document.getElementById(
+      'save_project_warning_modal',
+    ) as HTMLDialogElement;
+    if (cur_modal == null) return;
+    cur_modal.close();
+  };
+
+  const handleOpenSignUpModal = () => {
+    const modal = document.getElementById('signup_modal') as HTMLDialogElement;
+    if (modal == null) return;
+    modal.showModal();
+
+    // Close current modal
+    const cur_modal = document.getElementById(
+      'save_project_warning_modal',
+    ) as HTMLDialogElement;
+    if (cur_modal == null) return;
+    cur_modal.close();
   };
 
   useEffect(() => {
@@ -52,17 +104,17 @@ export default function ProjectSideBar() {
     ) as HTMLDialogElement;
     if (modal == null) return;
 
-    if (downloadLoading) {
+    if (loading) {
       modal.showModal();
     } else {
       if (modal.open) modal.close();
     }
-  }, [downloadLoading]);
+  }, [loading]);
 
   return (
     <aside className="flex h-full w-60 flex-col bg-neutral">
       <ProjectNameEditor />
-      <div className="flex h-2/3 flex-col justify-between border-b-4 border-base-100">
+      <div className="flex h-3/5 flex-col justify-between border-b-4 border-base-100">
         <div className="overflow-y-auto border-b-2 border-base-100">
           <ImageTable />
         </div>
@@ -88,7 +140,9 @@ export default function ProjectSideBar() {
       </div>
       <AnnotationEditor />
       <div className="mb-3 mt-5 flex justify-evenly">
-        <button className="btn btn-success p-1">Save Project</button>
+        <button className="btn btn-success p-1" onClick={handleSaveProject}>
+          Save Project
+        </button>
         <button className="btn btn-warning p-1" onClick={handleExportProject}>
           Export
         </button>
@@ -98,6 +152,31 @@ export default function ProjectSideBar() {
         modal_title="Exporting Annotations"
         modal_message="Exporting Project Annotations to COCO format"
       />
+      <LoadingModal
+        modal_id="saving_modal"
+        modal_title="Saving Project"
+        modal_message="Saving Project To Persisted Database"
+      />
+      <dialog id="save_project_warning_modal" className="modal">
+        <div className="modal-box">
+          <h3 className="mb-3 text-lg font-bold">Save Project</h3>
+          <p> You need to login to save the project. </p>
+          <div className="modal-action">
+            <button
+              className="btn btn-success mx-2 py-1"
+              onClick={handleOpenLoginModal}
+            >
+              Login
+            </button>
+            <button
+              className="btn btn-error py-1"
+              onClick={handleOpenSignUpModal}
+            >
+              Sign Up
+            </button>
+          </div>
+        </div>
+      </dialog>
     </aside>
   );
 }

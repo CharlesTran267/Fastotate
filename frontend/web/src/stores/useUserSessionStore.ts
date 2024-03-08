@@ -22,6 +22,7 @@ export type UserSessionStore = {
     getProjectsSummary: () => ProjectSummary[] | null;
     deleteProject: (project_id: string) => void;
     changeProjectName: (project_id: string, newName: string) => void;
+    saveProject: (project_id: string) => void;
   };
 };
 
@@ -92,6 +93,17 @@ export const useUserSessionStore = create<UserSessionStore>()(
                 project_id: project_id,
                 name: newName,
                 token: get().session_token,
+              });
+            } catch (error) {
+              console.error(error);
+            }
+          },
+          saveProject: async (project_id: string) => {
+            if (get().user_email === null) return;
+            try {
+              await axios.post(`${backendURL}/save-project`, {
+                project_id: project_id,
+                email: get().user_email,
               });
             } catch (error) {
               console.error(error);

@@ -1,7 +1,7 @@
 from src.logger import logger
 from typing import List, Any, Optional
 import uuid
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from src.utils.utils import hashString
 
 
@@ -9,10 +9,13 @@ class User(BaseModel):
     email: str
     hashed_password: str
     projects: List[str] = []
+    user_id: str = None
 
-    @property
-    def user_id(self):
-        return hashString(self.email)
+    @validator("user_id", pre=True, always=True)
+    def set_user_id(cls, v, values, **kwargs):
+        if v is None:
+            return hashString(values["email"])
+        return v
 
     def addProject(self, project_id: str) -> None:
         self.projects.append(project_id)

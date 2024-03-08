@@ -6,42 +6,134 @@ import torch
 import io
 import PIL.Image
 from ..utils.utils import hashString
+from pymongo import MongoClient
+import json
 
 
 class Database:
     def __init__(
-        self, redis_url: str = "", redis_host: str = "localhost", redis_port: int = 6379
+        self,
+        redis_url: str = "",
+        redis_host: str = "localhost",
+        redis_port: int = 6379,
+        mongo_url: str = "",
+        mongo_host: str = "localhost",
+        mongo_port: int = 27017,
     ):
         if not redis_url:
             redis_url = f"redis://@{redis_host}:{redis_port}"
-        self.db = redis.from_url(redis_url)
+        self.cache = redis.from_url(redis_url)
+        if not mongo_url:
+            mongo_url = f"mongodb://{mongo_host}:{mongo_port}/"
+        self.mongo = MongoClient(mongo_url)["fastotate_db"]
 
-    def get_project(self, projectId: str) -> Project:
-        if not self.db.exists(projectId):
-            logger.debug(f"Project {projectId} not found")
+    def read_from_mongo(self, collection: str, query: dict):
+        data = self.mongo[collection].find_one(query)
+        if data is not None:
+            data.pop("_id", None)
+        return data
+
+    def read_from_cache(self, cache_key: str):
+        data = self.cache.get(cache_key)
+        return data
+
+    def read_db(self, collection: str, cache_key: str, query: dict = None):
+        data = self.read_from_cache(cache_key)
+        if data is None:
+            logger.debug(f"{cache_key} not found in cache")
+            if query is None:
+                logger.info(f"{cache_key} not found in cache and no query provided")
+                return None
+            data = self.read_from_mongo(collection, query)
+            logger.debug("Read successfully from mongo")
+            if data is None:
+                logger.info(f"{cache_key} not found in mongo")
+            else:
+                data.pop("_id", None)
+                self.write_to_cache(cache_key, json.dumps(data))
+        return data
+
+    def write_to_mongo(self, collection: str, data: dict, query: dict = None):
+        if query:
+            self.mongo[collection].update_one(query, {"$set": data}, upsert=True)
+        else:
+            self.mongo[collection].insert_one(data)
+        logger.debug(f"Writing successfully to mongo {collection}")
+
+    def write_to_cache(self, cache_key: str, data: str):
+        self.cache.set(cache_key, data)
+
+    def write_db(
+        self, collection: str, data: dict, cache_key: str = None, query: dict = None
+    ):
+        if cache_key and self.cache.exists(cache_key):
+            self.cache.delete(cache_key)
+            logger.info(f"Deleted {cache_key} from cache")
+
+        self.write_to_mongo(collection, data, query)
+
+    def delete_from_mongo(self, collection: str, query: dict):
+        self.mongo[collection].delete_one(query)
+
+    def delete_from_cache(self, cache_key: str):
+        self.cache.delete(cache_key)
+
+    def delete_db(self, collection: str, cache_key: str, query: dict = None):
+        if self.cache.exists(cache_key):
+            self.cache.delete(cache_key)
+            logger.info(f"Deleted {cache_key} from cache")
+        if query:
+            self.mongo[collection].delete_one(query)
+        else:
+            logger.info("Query not provided")
+
+    def get_project(self, projectId: str, from_mongo: bool = False) -> Project:
+        if from_mongo:
+            project_data = self.read_from_mongo("projects", {"project_id": projectId})
+        else:
+            project_data = self.read_db(
+                "projects", projectId, query={"project_id": projectId}
+            )
+        if project_data is None:
             raise KeyError(f"Project {projectId} not found")
-        project_data = self.db.get(projectId)
-        project = Project.parse_raw(project_data)
+
+        if isinstance(project_data, (str, bytes)):
+            project = Project.parse_raw(project_data)
+        elif isinstance(project_data, dict):
+            project = Project.parse_obj(project_data)
         return project
 
-    def store_project(self, project: Project) -> None:
-        self.db.set(project.project_id, project.json())
+    def store_project(self, project: Project, cache_only: bool = True) -> None:
+        if not cache_only:
+            self.write_db(
+                "projects",
+                project.dict(),
+                project.project_id,
+                query={"project_id": project.project_id},
+            )
+        else:
+            self.write_to_cache(project.project_id, project.json())
 
     def delete_project(self, projectId: str, session_token: str) -> None:
         user = self.get_user(session_token)
         if user is None:
             logger.debug("No user found")
             return
-        user.projects.remove(projectId)
-        self.db.set(user.user_id, user.json())
-        self.db.delete(projectId)
+        if projectId in user.projects:
+            user.projects.remove(projectId)
+            self.store_user(user)
+            self.delete_db("projects", projectId, query={"project_id": projectId})
+        else:
+            logger.warning(f"Project {projectId} not in user projects list")
 
     def get_image_annotation(self, projectId: str, imageId: str) -> ImageAnnotation:
         project = self.get_project(projectId)
         return project.getImageAnnotation(imageId)
 
-    def add_new_project(self) -> Project:
+    def add_new_project(self, session_token: str = None) -> Project:
         project = Project()
+        if session_token is not None:
+            self.add_project_to_user(session_token, project.project_id)
         self.store_project(project)
         return project
 
@@ -89,6 +181,7 @@ class Database:
     def delete_image(self, projectId: str, imageId: str) -> None:
         project = self.get_project(projectId)
         project.removeImageAnnotation(imageId)
+        self.delete_db("images", imageId, query={"image_id": imageId})
         self.store_project(project)
 
     def delete_annotation(
@@ -119,68 +212,110 @@ class Database:
         image.image_embeddings = embeddings
         self.store_image(image)
 
-    def store_image(self, image: Image) -> None:
-        self.db.set(image.image_id, image.json())
+    def store_image(self, image: Image, cache_only: bool = True) -> None:
+        if not cache_only:
+            self.write_db(
+                "images",
+                image.dict(),
+                image.image_id,
+                query={"image_id": image.image_id},
+            )
+        else:
+            self.write_to_cache(image.image_id, image.json())
 
     def get_image(self, imageID: str) -> Image:
-        if not self.db.exists(imageID):
-            logger.debug(f"Image {imageID} not found")
+        image_data = self.read_db("images", imageID, query={"image_id": imageID})
+        if image_data is None:
             raise KeyError(f"Image {imageID} not found")
 
-        image_data = self.db.get(imageID)
-        image = Image.parse_raw(image_data)
+        if isinstance(image_data, (str, bytes)):
+            image = Image.parse_raw(image_data)
+        elif isinstance(image_data, dict):
+            image = Image.parse_obj(image_data)
         return image
+
+    def store_user(self, user: User, cache_only: bool = False) -> None:
+        if not cache_only:
+            self.write_db(
+                "users", user.dict(), user.user_id, query={"user_id": user.user_id}
+            )
+        else:
+            self.write_to_cache(user.user_id, user.json())
 
     def add_new_user(self, email: str, pass_word: str) -> None:
         user_id = hashString(email)
-        if self.db.exists(user_id):
+        if self.read_db("users", user_id, query={"user_id": user_id}):
             logger.debug(f"User {email} already exists")
             raise KeyError(f"User {email} already exists")
 
-        hashed_password = hashString(pass_word)
-        user = User(email=email, hashed_password=hashed_password)
-        self.db.set(user.user_id, user.json())
+        user = User(email=email, hashed_password=hashString(pass_word))
+        logger.debug(f"Adding user {user.user_id}")
+        self.store_user(user, cache_only=False)
 
     def user_login(self, email: str, pass_word: str) -> str:
         user_id = hashString(email)
-        if not self.db.exists(user_id):
-            logger.debug(f"User {email} not found")
+        user_data = self.read_db("users", user_id, query={"user_id": user_id})
+
+        if user_data is None:
             raise KeyError(f"User {email} not found")
 
-        user_data = self.db.get(user_id)
-        user = User.parse_raw(user_data)
+        if isinstance(user_data, (str, bytes)):
+            user = User.parse_raw(user_data)
+        elif isinstance(user_data, dict):
+            user = User.parse_obj(user_data)
+        else:
+            raise Exception("user_data is not a string or a dict")
+
         if user.hashed_password == hashString(pass_word):
             session = LoginSession(user_id=user.user_id, expiry=3600)
-            self.db.set(session.session_token, session.json())
+            self.write_to_cache(session.session_token, session.json())
             return session.session_token
         else:
             raise ValueError("Invalid password")
 
     def user_logout(self, session_token: str) -> None:
-        self.db.delete(session_token)
+        self.delete_db("sessions", session_token)
 
     def get_user(self, session_token: str) -> User:
         if session_token is None:
             logger.debug("No session token provided")
             return None
 
-        if not self.db.exists(session_token):
+        try:
+            session_data = self.read_from_cache(session_token)
+        except:
             logger.debug(f"Session {session_token} not found")
-            raise KeyError(f"Session {session_token} not found")
+            return None
 
-        session_data = self.db.get(session_token)
         session = LoginSession.parse_raw(session_data)
-        user_data = self.db.get(session.user_id)
-        user = User.parse_raw(user_data)
+        try:
+            user_data = self.read_db(
+                "users", session.user_id, query={"user_id": session.user_id}
+            )
+        except:
+            logger.debug(f"User {session.user_id} not found")
+            return None
+
+        if isinstance(user_data, (str, bytes)):
+            user = User.parse_raw(user_data)
+        elif isinstance(user_data, dict):
+            user = User.parse_obj(user_data)
+        else:
+            raise Exception("user_data is not a string or a dict")
         return user
 
-    def add_project_to_user(self, session_token: str, project_id: str) -> None:
+    def add_project_to_user(
+        self, session_token: str, project_id: str, cache_only: bool = True
+    ) -> None:
         user = self.get_user(session_token)
         if user is None:
             logger.debug("No user found")
             return
         user.addProject(project_id)
-        self.db.set(user.user_id, user.json())
+        if not cache_only:
+            self.store_user(user, cache_only=False)
+        else:
+            self.store_user(user, cache_only=True)
 
     def get_projects_for_user(self, session_token: str) -> List[Project]:
         user = self.get_user(session_token)
@@ -195,3 +330,28 @@ class Database:
             except KeyError:
                 logger.warning(f"Project {project_id} not found")
         return projects_sum
+
+    def get_user_from_mongo(self, email: str) -> User:
+        user_id = hashString(email)
+        user_data = self.read_from_mongo("users", {"user_id": user_id})
+        user = User.parse_obj(user_data)
+        return user
+
+    def save_project_to_db(self, user_email: str, project_id: str) -> None:
+        user = self.get_user_from_mongo(user_email)
+        if user is None:
+            logger.debug("No user found")
+            return
+
+        if project_id not in user.projects:
+            logger.debug(
+                f"Project {project_id} not in user projects list. Adding project to user projects list"
+            )
+            user.addProject(project_id)
+            self.store_user(user, cache_only=False)
+
+        project = self.get_project(project_id)
+        self.store_project(project, cache_only=False)
+        for imageAnn in project.imageAnnotations:
+            image = self.get_image(imageAnn.image_id)
+            self.store_image(image, cache_only=False)
