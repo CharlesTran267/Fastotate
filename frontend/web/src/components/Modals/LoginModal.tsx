@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { BiSolidHide, BiSolidShow } from 'react-icons/bi';
 import axios from 'axios';
+import { set } from 'lodash';
+import { useUserSessionStore } from '@/stores/useUserSessionStore';
 
 type FormData = {
   email: string;
   password: string;
-  repeatPassword: string;
 };
 
-export default function SignUpModal() {
+export default function LoginModal() {
+  const userSessionActions = useUserSessionStore((state) => state.actions);
+
   const [showPassword, setShowPassword] = useState(false);
   const handleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -17,19 +20,17 @@ export default function SignUpModal() {
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
-    repeatPassword: '',
+  });
+
+  const [formErros, setFormErrors] = useState<FormData>({
+    email: '',
+    password: '',
   });
 
   const handleFormDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
-
-  const [formErros, setFormErrors] = useState<FormData>({
-    email: '',
-    password: '',
-    repeatPassword: '',
-  });
 
   const validateForm = (values: FormData) => {
     const errors = {} as any;
@@ -42,11 +43,6 @@ export default function SignUpModal() {
     }
     if (!values.password) {
       errors.password = 'Password is required';
-    } else if (values.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
-    }
-    if (values.password !== values.repeatPassword) {
-      errors.repeatPassword = 'Passwords do not match';
     }
     return errors;
   };
@@ -56,44 +52,71 @@ export default function SignUpModal() {
     const errors = validateForm(formData);
     if (Object.keys(errors).length === 0) {
       console.log('Form is valid! Submitting...');
-      const backendURL = process.env.NEXT_PUBLIC_API_URL;
-      const form = new FormData();
-      form.append('email', formData.email);
-      form.append('password', formData.password);
-      const response = await axios.post(`${backendURL}/signup`, form);
-      if (response.data.message === 'User already exists') {
-        setFormErrors({ email: 'Email already exists' } as FormData);
-      } else if (response.data.status === 200) {
-        console.log('User created successfully');
-        // Close modal
-        const modal = document.getElementById(
-          'signup_modal',
-        ) as HTMLDialogElement;
-        modal.close();
+      const response = await userSessionActions.login(
+        formData.email,
+        formData.password,
+      );
+      if (response?.status !== 200) {
+        let message = response.message;
+        // trim '' from message if present
+        message = message.replace(/^"(.*)"$/, '$1');
+        if (message.includes('password')) {
+          setFormErrors({ ...formErros, password: message });
+        } else {
+          setFormErrors({ ...formErros, email: message });
+        }
       }
     } else {
       setFormErrors(errors);
     }
   };
 
-  const openLoginModal = () => {
-    const modal = document.getElementById('login_modal') as HTMLDialogElement;
+  const openForgotPasswordModal = () => {
+    const modal = document.getElementById(
+      'forgot_password_modal',
+    ) as HTMLDialogElement;
     if (modal == null) return;
     // Close current modal
-    const signup_modal = document.getElementById(
-      'signup_modal',
+    const login_modal = document.getElementById(
+      'login_modal',
     ) as HTMLDialogElement;
-    if (signup_modal == null) return;
-    signup_modal.close();
+    if (login_modal == null) return;
+    login_modal.close();
+    modal.showModal();
+  };
+
+  const openSignUpModal = () => {
+    const modal = document.getElementById('signup_modal') as HTMLDialogElement;
+    if (modal == null) return;
+    // Close current modal
+    const login_modal = document.getElementById(
+      'login_modal',
+    ) as HTMLDialogElement;
+    if (login_modal == null) return;
+    login_modal.close();
+    modal.showModal();
+  };
+
+  const openActivateAccountModal = () => {
+    const modal = document.getElementById(
+      'activate_account_modal',
+    ) as HTMLDialogElement;
+    if (modal == null) return;
+    // Close current modal
+    const login_modal = document.getElementById(
+      'login_modal',
+    ) as HTMLDialogElement;
+    if (login_modal == null) return;
+    login_modal.close();
     modal.showModal();
   };
 
   return (
-    <dialog id="signup_modal" className="modal">
+    <dialog id="login_modal" className="modal">
       <div className="modal-box">
-        <h3 className="mb-2 text-lg font-black">Sign Up</h3>
+        <h3 className="mb-2 text-lg font-black">Login</h3>
         <form method="dialog" className="flex flex-col">
-          <div className="form-control mb-4">
+          <div className="form-control">
             <label className="input input-bordered my-2 flex items-center gap-2">
               <svg
                 viewBox="0 0 16 16"
@@ -112,7 +135,16 @@ export default function SignUpModal() {
                 onChange={handleFormDataChange}
               />
             </label>
-            <p className="text-error">{formErros.email}</p>
+            {formErros.email.includes('activated') ? (
+              <p className="text-error">
+                {formErros.email}{' '}
+                <a className="link" onClick={openActivateAccountModal}>
+                  Activate now.
+                </a>
+              </p>
+            ) : (
+              <p className="text-error">{formErros.email}</p>
+            )}
           </div>
           <div className="form-control">
             <label className="input input-bordered my-2 flex items-center gap-2">
@@ -148,57 +180,29 @@ export default function SignUpModal() {
               </button>
             </label>
             <p className="text-error">{formErros.password}</p>
-            <label className="input input-bordered my-2 flex items-center gap-2">
-              <svg
-                viewBox="0 0 16 16"
-                fill="currentColor"
-                className="h-4 w-4 opacity-70"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M14 6a4 4 0 0 1-4.899 3.899l-1.955 1.955a.5.5 0 0 1-.353.146H5v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-2.293a.5.5 0 0 1 .146-.353l3.955-3.955A4 4 0 1 1 14 6Zm-4-2a.75.75 0 0 0 0 1.5.5.5 0 0 1 .5.5.75.75 0 0 0 1.5 0 2 2 0 0 0-2-2Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                className="grow bg-inherit"
-                placeholder="Repeat Password"
-                name="repeatPassword"
-                value={formData.repeatPassword}
-                onChange={handleFormDataChange}
-              />
-              <button
-                type="button"
-                className="btn btn-ghost m-0 p-0 opacity-70"
-                onClick={handleShowPassword}
-              >
-                {showPassword ? (
-                  <BiSolidShow size={18} />
-                ) : (
-                  <BiSolidHide size={18} />
-                )}
-              </button>
-            </label>
-            <p className="text-error">{formErros.repeatPassword}</p>
           </div>
           <div className="mt-2 flex flex-col text-xs">
+            <a className="link ml-auto" onClick={openForgotPasswordModal}>
+              Forgot Password?
+            </a>
             <h2 className="my-2 ml-auto">
-              Already have an account?{' '}
-              <a className="link" onClick={openLoginModal}>
-                Login
+              Don't have an account?{' '}
+              <a className="link" onClick={openSignUpModal}>
+                Create one
               </a>
             </h2>
           </div>
           <div className="modal-action mt-2">
             <button
               type="submit"
-              onClick={handleSubmit}
               className="btn btn-success mx-2 font-black"
+              onClick={handleSubmit}
             >
-              Sign Up
+              Login
             </button>
-            <button className="btn btn-error font-black">Close</button>
+            <button type="submit" className="btn btn-error font-black">
+              Close
+            </button>
           </div>
         </form>
       </div>

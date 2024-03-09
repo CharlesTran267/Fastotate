@@ -5,7 +5,7 @@ import { ProjectNameEditor } from './ProjectNameEditor';
 import { useEffect, useRef, useState } from 'react';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { useParams } from 'next/navigation';
-import { LoadingModal } from '@/components/LoadingModal';
+import { LoadingModal } from '@/components/Modals/LoadingModal';
 import { useUserSessionStore } from '@/stores/useUserSessionStore';
 
 export default function ProjectSideBar() {

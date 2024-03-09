@@ -23,6 +23,21 @@ export type UserSessionStore = {
     deleteProject: (project_id: string) => void;
     changeProjectName: (project_id: string, newName: string) => void;
     saveProject: (project_id: string) => void;
+    sendForgotPasswordEmail: (
+      email: string,
+    ) => Promise<any> | AxiosResponse<any, any> | null;
+    sendActivationEmail: (
+      email: string,
+    ) => Promise<any> | AxiosResponse<any, any> | null;
+    activateAccount: (
+      email: string,
+      verification_code: string,
+    ) => Promise<any> | AxiosResponse<any, any> | null;
+    changePassword: (
+      email: string,
+      password: string,
+      verification_code: string,
+    ) => Promise<any> | AxiosResponse<any, any> | null;
   };
 };
 
@@ -105,6 +120,65 @@ export const useUserSessionStore = create<UserSessionStore>()(
                 project_id: project_id,
                 email: get().user_email,
               });
+            } catch (error) {
+              console.error(error);
+            }
+          },
+          sendForgotPasswordEmail: async (email: string) => {
+            try {
+              const response = await axios.post(
+                `${backendURL}/send-reset-password-email`,
+                {
+                  email: email,
+                },
+              );
+              return response.data;
+            } catch (error) {
+              console.error(error);
+            }
+          },
+          sendActivationEmail: async (email: string) => {
+            try {
+              const response = await axios.post(
+                `${backendURL}/send-activation-email`,
+                {
+                  email: email,
+                },
+              );
+              return response.data;
+            } catch (error) {
+              console.error(error);
+            }
+          },
+          activateAccount: async (email: string, verification_code: string) => {
+            try {
+              const response = await axios.post(
+                `${backendURL}/activate-account`,
+                {
+                  email: email,
+                  verification_code: verification_code,
+                },
+              );
+              return response.data;
+            } catch (error) {
+              console.error(error);
+            }
+          },
+          changePassword: async (
+            email: string,
+            password: string,
+            verification_code: string,
+          ) => {
+            try {
+              const response = await axios.post(
+                `${backendURL}/reset-password`,
+                {
+                  email: email,
+                  password: password,
+                  verification_code: verification_code,
+                },
+              );
+              return response.data;
             } catch (error) {
               console.error(error);
             }

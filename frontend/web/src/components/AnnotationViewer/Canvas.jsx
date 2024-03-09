@@ -10,7 +10,7 @@ import {
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { getImage } from '@/stores/imageDatabase';
-import { LoadingModal } from '../LoadingModal';
+import { LoadingModal } from '../Modals/LoadingModal';
 
 const PolygonAnnotation = dynamic(() => import('./PolygonAnnotation'), {
   ssr: false,

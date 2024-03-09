@@ -181,9 +181,9 @@ def send_reset_password_email():
 def activate_account():
     data = request.json
     user_email = data["email"]
-    activation_code = data["activation_code"]
+    verification_code = data["verification_code"]
     try:
-        app.database.activate_user(user_email, activation_code)
+        app.database.activate_user(user_email, verification_code)
         response = Response(
             data=None, status=200, message="Account activated successfully"
         )
@@ -197,10 +197,10 @@ def activate_account():
 def reset_password():
     data = request.json
     user_email = data["email"]
-    reset_code = data["reset_code"]
-    new_password = data["new_password"]
+    verification_code = data["verification_code"]
+    new_password = data["password"]
     try:
-        app.database.reset_password(user_email, reset_code, new_password)
+        app.database.reset_password(user_email, verification_code, new_password)
         response = Response(
             data=None, status=200, message="Password reset successfully"
         )

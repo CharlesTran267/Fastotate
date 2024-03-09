@@ -2,11 +2,10 @@
 import { useUserSessionStore } from '@/stores/useUserSessionStore';
 import { useEffect, useState } from 'react';
 import { ProjectSummary } from '@/stores/useUserSessionStore';
-import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { useRouter } from 'next/navigation';
 import { FaEdit } from 'react-icons/fa';
 import axios from 'axios';
-import ProjectNameModal from '@/components/ProjectNameModal';
+import ProjectNameModal from '@/components/Modals/ProjectNameModal';
 import { createProject } from '@/utils/utils';
 
 export default function ProjectsPage() {

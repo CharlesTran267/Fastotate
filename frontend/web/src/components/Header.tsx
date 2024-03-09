@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import LoginModal from './LoginModal';
-import SignUpModal from './SignUpModal';
-import ForgotPasswordModal from './ForgotPasswordModal';
+import LoginModal from './Modals/LoginModal';
+import SignUpModal from './Modals/SignUpModal';
+import ForgotPasswordModal from './Modals/ForgotPasswordModal';
 import { useUserSessionStore } from '@/stores/useUserSessionStore';
 import { createProject } from '@/utils/utils';
 import { useRouter } from 'next/navigation';
+import ActivateAccountModal from './Modals/ActivateAccountModal';
 
 export default function Header() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function Header() {
             <LoginModal />
             <SignUpModal />
             <ForgotPasswordModal />
+            <ActivateAccountModal />
           </>
         ) : (
           <>
@@ -58,7 +60,7 @@ export default function Header() {
               className="btn btn-ghost"
               onClick={handleCreateProjectClick}
             >
-              Create Project
+              New Project
             </button>
             <div className="dropdown dropdown-end">
               <div tabIndex={0} role="button" className="btn btn-ghost m-1">

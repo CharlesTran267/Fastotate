@@ -4,7 +4,7 @@ import {
   useAnnotationSessionStore,
   Project,
 } from '@/stores/useAnnotationSessionStore';
-import ProjectNameModal from '@/components/ProjectNameModal';
+import ProjectNameModal from '@/components/Modals/ProjectNameModal';
 
 export function ProjectNameEditor() {
   const project = useAnnotationSessionStore((state) => state.project);

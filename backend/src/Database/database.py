@@ -1,6 +1,14 @@
 import redis
 from typing import List
-from .models import Project, ImageAnnotation, Annotation, Image, User, LoginSession
+from .models import (
+    Project,
+    ImageAnnotation,
+    Annotation,
+    Image,
+    User,
+    LoginSession,
+    VerificationCode,
+)
 from ..logger import logger
 import torch
 import io
@@ -264,23 +272,23 @@ class Database:
         elif isinstance(user_data, dict):
             user = User.parse_obj(user_data)
         else:
-            raise Exception("user_data is not a string or a dict")
+            raise Exception("user_data is not a string or a dict!")
 
         if user.hashed_password == hashString(pass_word):
             if user.activated is False:
-                raise KeyError("User not activated")
+                raise KeyError("User not activated!")
             session = LoginSession(user_id=user.user_id, expiry=3600)
             self.write_to_cache(session.session_token, session.json())
             return session.session_token
         else:
-            raise ValueError("Invalid password")
+            raise ValueError("Invalid password!")
 
     def user_logout(self, session_token: str) -> None:
         self.delete_db("sessions", session_token)
 
     def get_user(self, session_token: str) -> User:
         if session_token is None:
-            logger.debug("No session token provided")
+            logger.debug("No session token provided!")
             return None
 
         try:
