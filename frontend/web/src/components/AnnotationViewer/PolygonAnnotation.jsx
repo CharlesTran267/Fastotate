@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Line, Circle, Group } from 'react-konva';
-import {
-  minMax,
-  dragBoundFunc,
-  relativeToOriginalCoords,
-} from '../../utils/utils';
+import { relativeToOriginalCoords } from '../../utils/utils';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { originalToRelativeCoords } from '../../utils/utils';
 
 export default function PolygonAnnotation(props) {
-  const { annotation, mousePos, imageSize, oriSize, isFinished } = props;
+  const vertexRadius = 6;
+  const { annotation, mousePos, imageSize, oriSize, isFinished, stage } = props;
 
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
@@ -25,9 +22,8 @@ export default function PolygonAnnotation(props) {
 
   const selectedImage = sessionActions.getSelectedImage();
 
-  const vertexRadius = 6;
-  const [stage, setStage] = useState();
   const [flattenPoints, setFlattenPoints] = useState([]);
+  const [relativePoints, setRelativePoints] = useState([]);
 
   const handleMouseOverPoint = (e) => {
     e.target.scale({ x: 1.5, y: 1.5 });
@@ -40,15 +36,28 @@ export default function PolygonAnnotation(props) {
   const handleGroupMouseOver = (e) => {
     if (!isFinished) return;
     e.target.getStage().container().style.cursor = 'move';
-    setStage(e.target.getStage());
   };
 
   const handleGroupMouseOut = (e) => {
     e.target.getStage().container().style.cursor = 'default';
   };
 
+  const handleAnnotationClick = () => {
+    if (annotationMode !== AnnotationMode.SELECT || !isFinished) return;
+    sessionActions.setSelectedAnnotationID(annotation.annotation_id);
+  };
+
   const [minMaxX, setMinMaxX] = useState([0, 0]); //min and max in x axis
   const [minMaxY, setMinMaxY] = useState([0, 0]); //min and max in y axis
+
+  const minMax = (points) => {
+    return points.reduce((acc, val) => {
+      acc[0] = acc[0] === undefined || val < acc[0] ? val : acc[0];
+      acc[1] = acc[1] === undefined || val > acc[1] ? val : acc[1];
+      return acc;
+    }, []);
+  };
+
   const handleGroupDragStart = (e) => {
     sessionActions.setSelectedAnnotationID(annotation.annotation_id);
     const relativePoints = originalToRelativeCoords(
@@ -64,47 +73,25 @@ export default function PolygonAnnotation(props) {
 
   const groupDragBound = (pos) => {
     let { x, y } = pos;
+    const stagePos = stage.position();
+
     const sw = stage.width();
     const sh = stage.height();
-    if (minMaxY[0] + y < 0) y = -1 * minMaxY[0];
-    if (minMaxX[0] + x < 0) x = -1 * minMaxX[0];
-    if (minMaxY[1] + y > sh) y = sh - minMaxY[1];
-    if (minMaxX[1] + x > sw) x = sw - minMaxX[1];
+    if (minMaxY[0] + y - vertexRadius < stagePos.y)
+      y = stagePos.y - minMaxY[0] + vertexRadius;
+    if (minMaxX[0] + x - vertexRadius < stagePos.x)
+      x = stagePos.x - minMaxX[0] + vertexRadius;
+    if (minMaxY[1] + y + vertexRadius > sh + stagePos.y)
+      y = sh + stagePos.y - minMaxY[1] - vertexRadius;
+    if (minMaxX[1] + x + vertexRadius > sw + stagePos.x)
+      x = sw + stagePos.x - minMaxX[1] - vertexRadius;
     return { x, y };
   };
 
-  const handleAnnotationClick = () => {
-    if (annotationMode !== AnnotationMode.SELECT || !isFinished) return;
-    sessionActions.setSelectedAnnotationID(annotation.annotation_id);
-  };
-
-  const handlePointDragEnd = (e, annotation_id) => {
-    const stage = e.target.getStage();
-    const index = e.target.index - 1;
-    const pos = [e.target._lastPos.x, e.target._lastPos.y];
-    if (pos[0] < 0) pos[0] = 0;
-    if (pos[1] < 0) pos[1] = 0;
-    if (pos[0] > stage.width()) pos[0] = stage.width();
-    if (pos[1] > stage.height()) pos[1] = stage.height();
-    selectedImage.annotations.map((annotation) => {
-      if (annotation.annotation_id === annotation_id) {
-        annotation.points[index] = relativeToOriginalCoords(
-          pos,
-          imageSize,
-          oriSize,
-        );
-        sessionActions.modifySelectedAnnotation(
-          annotation.points,
-          annotation.className,
-          annotation_id,
-        );
-      }
-    });
-  };
-
-  const handleGroupDragEnd = (e, annotation_id) => {
+  const handleGroupDragEnd = (e) => {
     //drag end listens other children circles' drag end event
     //...that's, why 'name' attr is added, see in polygon annotation part
+    const annotation_id = annotation.annotation_id;
     if (e.target.name() === 'polygon') {
       selectedImage.annotations.map((annotation) => {
         if (annotation.annotation_id === annotation_id) {
@@ -130,7 +117,51 @@ export default function PolygonAnnotation(props) {
     }
   };
 
-  const [relativePoints, setRelativePoints] = useState([]);
+  const pointDragMove = (e) => {
+    let x = e.target.x();
+    let y = e.target.y();
+
+    const sw = stage.width();
+    const sh = stage.height();
+
+    if (x + vertexRadius > sw) x = sw - vertexRadius;
+    if (x - vertexRadius < 0) x = vertexRadius;
+    if (y + vertexRadius > sh) y = sh - vertexRadius;
+    if (y - vertexRadius < 0) y = vertexRadius;
+    e.target.position({ x: x, y: y });
+  };
+
+  const handlePointDragEnd = (e) => {
+    const stage = e.target.getStage();
+    const stagePos = stage.position();
+    const scale = stage.scaleX();
+    const index = e.target.index - 1;
+    const pos = [
+      (e.target._lastPos.x - stagePos.x) / scale,
+      (e.target._lastPos.y - stagePos.y) / scale,
+    ];
+
+    if (pos[0] < 0) pos[0] = 0;
+    if (pos[1] < 0) pos[1] = 0;
+    if (pos[0] > stage.width()) pos[0] = stage.width();
+    if (pos[1] > stage.height()) pos[1] = stage.height();
+
+    const annotation_id = annotation.annotation_id;
+    selectedImage.annotations.map((annotation) => {
+      if (annotation.annotation_id === annotation_id) {
+        annotation.points[index] = relativeToOriginalCoords(
+          pos,
+          imageSize,
+          oriSize,
+        );
+        sessionActions.modifySelectedAnnotation(
+          annotation.points,
+          annotation.className,
+          annotation_id,
+        );
+      }
+    });
+  };
 
   useEffect(() => {
     if (annotation.points.length === 0) {
@@ -158,7 +189,7 @@ export default function PolygonAnnotation(props) {
       name="polygon"
       draggable={isFinished && annotationMode === AnnotationMode.SELECT}
       onDragStart={handleGroupDragStart}
-      onDragEnd={(e) => handleGroupDragEnd(e, annotation.annotation_id)}
+      onDragEnd={handleGroupDragEnd}
       dragBoundFunc={groupDragBound}
       onMouseOver={handleGroupMouseOver}
       onMouseOut={handleGroupMouseOut}
@@ -189,10 +220,8 @@ export default function PolygonAnnotation(props) {
             stroke="#00F1FF"
             strokeWidth={2}
             draggable={annotationMode === AnnotationMode.SELECT}
-            onDragEnd={(e) => handlePointDragEnd(e, annotation.annotation_id)}
-            dragBoundFunc={(pos) =>
-              dragBoundFunc(stage.width(), stage.height(), vertexRadius, pos)
-            }
+            onDragEnd={handlePointDragEnd}
+            onDragMove={pointDragMove}
             hitStrokeWidth={12}
             onMouseOver={handleMouseOverPoint}
             onMouseOut={handleMouseOutPoint}

@@ -31,6 +31,8 @@ export default function Canvas() {
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
   );
+  const zoomLevel = useAnnotationSessionStore((state) => state.zoomLevel);
+  const stagePos = useAnnotationSessionStore((state) => state.stagePos);
 
   const project = useAnnotationSessionStore((state) => state.project);
   const selectedImageID = useAnnotationSessionStore(
@@ -145,7 +147,10 @@ export default function Canvas() {
   }, [selectedImageID]);
 
   const getMousePos = (stage) => {
-    return [stage.getPointerPosition().x, stage.getPointerPosition().y];
+    const scale = stage.scaleX();
+    const stagePos = stage.position();
+    const pos = stage.getPointerPosition();
+    return [(pos.x - stagePos.x) / scale, (pos.y - stagePos.y) / scale];
   };
 
   const handleMouseMove = (e) => {
@@ -162,6 +167,8 @@ export default function Canvas() {
 
   //drawing begins when mousedown event fires.
   const handleMouseDown = (e) => {
+    //Check if ctrl key is pressed
+    if (e.evt.ctrlKey) return;
     if (
       !(
         annotationMode === AnnotationMode.POLYGON ||
@@ -187,10 +194,6 @@ export default function Canvas() {
     });
   };
 
-  useEffect(() => {
-    sessionActions.setZoomCenter({ x: mousePos[0], y: mousePos[1] });
-  }, [mousePos]);
-
   const stageRef = useRef(null);
   const handleWheel = (e) => {
     if (e.evt.ctrlKey === false) return;
@@ -198,12 +201,12 @@ export default function Canvas() {
     const stage = stageRef.current;
     const oldScale = stage.scaleX();
     const zoomSpeed = 0.1;
-    const pointer = stage.getPointerPosition();
 
     const mouseWheel = e.evt.deltaY < 0 ? 1 : -1;
     const newScale = oldScale + mouseWheel * zoomSpeed;
     if (newScale < 1 || newScale > 10) return;
 
+    const pointer = stage.getPointerPosition();
     const mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
       y: (pointer.y - stage.y()) / oldScale,
@@ -214,10 +217,17 @@ export default function Canvas() {
       y: pointer.y - mousePointTo.y * newScale,
     };
 
-    stage.scale({ x: newScale, y: newScale });
+    sessionActions.setZoomLevel(newScale);
     stage.position(newPos);
-    stage.batchDraw();
+    stage.scale({ x: newScale, y: newScale });
   };
+
+  useEffect(() => {
+    sessionActions.setZoomLevel(1);
+    const stage = stageRef.current;
+    if (stage == null) return;
+    stage.position({ x: 0, y: 0 });
+  }, [selectedImageID]);
 
   const dragBoundFunc = (pos) => {
     const frameWidth = imageSize.width;
@@ -265,6 +275,27 @@ export default function Canvas() {
 
   const loading = useAnnotationSessionStore((state) => state.loading);
 
+  const [isDraggable, setIsDraggable] = useState(false);
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey) {
+        setIsDraggable(true);
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (!e.ctrlKey) {
+        setIsDraggable(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   return (
     <div className="flex-1">
       <div className="flex flex-col items-center justify-center">
@@ -280,12 +311,15 @@ export default function Canvas() {
           {selectedImage != null ? (
             <>
               <Stage
+                id="canvas-stage"
                 width={imageSize.width || 650}
                 height={imageSize.height || 302}
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 ref={stageRef}
-                draggable={false}
+                draggable={isDraggable}
+                scaleX={zoomLevel}
+                scaleY={zoomLevel}
                 dragBoundFunc={dragBoundFunc}
               >
                 <Layer
@@ -311,6 +345,7 @@ export default function Canvas() {
                         imageSize={imageSize}
                         oriSize={oriSize}
                         isFinished={true}
+                        stage={stageRef.current}
                       />
                     );
                   })}
@@ -320,6 +355,7 @@ export default function Canvas() {
                     imageSize={imageSize}
                     oriSize={oriSize}
                     isFinished={false}
+                    stage={stageRef.current}
                   />
                   {annotationMode === AnnotationMode.MAGIC ? (
                     <MagicAnnotation

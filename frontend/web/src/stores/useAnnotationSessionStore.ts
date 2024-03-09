@@ -63,7 +63,7 @@ type AnntationSessionStore = {
   selectedAnnotationID: string | null;
   project: Project | null;
   zoomLevel: number;
-  zoomCenter: { x: number; y: number };
+  stagePos: { x: number; y: number };
   response: object | null;
   loading: boolean;
   actions: {
@@ -89,7 +89,7 @@ type AnntationSessionStore = {
     changeDefaultClass: (className: string) => void;
     addClass: (className: string) => void;
     setZoomLevel: (zoomLevel: number) => void;
-    setZoomCenter: (x: number, y: number) => void;
+    setStagePos: (x: number, y: number) => void;
     setMagicImage: (image_id: string) => void;
     setMagicPoints: (points: number[], labels: number[]) => void;
     getProjectCOCOformat: () => object;
@@ -171,7 +171,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
       selectedAnnotationID: null,
       project: null,
       zoomLevel: 1,
-      zoomCenter: { x: 0, y: 0 },
+      stagePos: { x: 0, y: 0 },
       response: null,
       loading: false,
       actions: {
@@ -306,8 +306,8 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           });
         },
         setZoomLevel: (zoomLevel: number) => set(() => ({ zoomLevel })),
-        setZoomCenter: (x: number, y: number) =>
-          set(() => ({ zoomCenter: { x, y } })),
+        setStagePos: (x: number, y: number) =>
+          set(() => ({ stagePos: { x, y } })),
         setMagicImage: (image_id: string) => {
           console.log('Setting magic image:', image_id);
           const project_id = get().project?.project_id;

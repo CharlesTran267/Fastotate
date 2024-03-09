@@ -9,6 +9,8 @@ import { FaMagic } from 'react-icons/fa';
 import { useEffect } from 'react';
 import { AnnotationMode } from '@/types/AnnotationMode';
 import { useAnnotationSessionStore } from '@/stores/useAnnotationSessionStore';
+import { KonvaNodeComponent, StageProps } from 'react-konva';
+import { Stage } from 'konva/lib/Stage';
 
 export default function AnnotationSideBar() {
   const actions = useAnnotationSessionStore((state) => state.actions);
@@ -54,6 +56,26 @@ export default function AnnotationSideBar() {
 
   const handleDeleteSelectedAnnotation = () => {
     actions.removeSelectedAnnotation();
+  };
+
+  const zoomFactor = 1.1;
+
+  const zoomLevel = useAnnotationSessionStore((state) => state.zoomLevel);
+
+  const handleZoomIn = () => {
+    let newScale = zoomLevel * zoomFactor;
+    if (newScale > 10) {
+      newScale = 10;
+    }
+    actions.setZoomLevel(newScale);
+  };
+
+  const handleZoomOut = () => {
+    let newScale = zoomLevel / zoomFactor;
+    if (newScale < 1) {
+      newScale = 1;
+    }
+    actions.setZoomLevel(newScale);
   };
 
   return (
@@ -116,12 +138,12 @@ export default function AnnotationSideBar() {
           </button>
         </div>
         <div className="tooltip tooltip-right" data-tip="Zoom In">
-          <button className="btn btn-ghost p-1">
+          <button className="btn btn-ghost p-1" onClick={handleZoomIn}>
             <ImZoomIn size={20} />
           </button>
         </div>
         <div className="tooltip tooltip-right" data-tip="Zoom Out">
-          <button className="btn btn-ghost p-1">
+          <button className="btn btn-ghost p-1" onClick={handleZoomOut}>
             <ImZoomOut size={20} />
           </button>
         </div>
