@@ -114,11 +114,11 @@ export default function ProjectSideBar() {
   return (
     <aside className="flex h-full w-60 flex-col bg-neutral">
       <ProjectNameEditor />
-      <div className="flex h-3/5 flex-col justify-between border-b-4 border-base-100">
+      <div className="flex h-4/5 flex-col justify-between border-b-4 border-base-100">
         <div className="overflow-y-auto border-b-2 border-base-100">
           <ImageTable />
         </div>
-        <div className="mb-3 mt-5 flex justify-evenly">
+        <div className="my-3 flex items-center justify-evenly">
           <input
             type="file"
             className="hidden"
@@ -158,6 +158,9 @@ export default function ProjectSideBar() {
         modal_message="Saving Project To Persisted Database"
       />
       <dialog id="save_project_warning_modal" className="modal">
+        <form method="dialog" className="modal-backdrop">
+          <button>close</button>
+        </form>
         <div className="modal-box">
           <h3 className="mb-3 text-lg font-bold">Save Project</h3>
           <p> You need to login to save the project. </p>

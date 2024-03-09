@@ -40,7 +40,7 @@ export default function ImageTable() {
         ))}
 
         {project && project.imageAnnotations.length < 10
-          ? [...Array(10 - project.imageAnnotations.length)].map((_, i) => (
+          ? [...Array(12 - project.imageAnnotations.length)].map((_, i) => (
               <tr className="bg-neutral hover:bg-slate-500" key={i}>
                 <td className="h-10 whitespace-nowrap"></td>
                 <th className="bg-neutral text-center"></th>

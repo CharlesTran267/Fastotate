@@ -63,3 +63,9 @@ class Project(BaseModel):
             "default_class": self.default_class,
             "num_images": len(self.imageAnnotations),
         }
+
+    def set_classes(self, classes: List[str], default_class: str):
+        if default_class not in classes:
+            raise ValueError("Default class must be in classes list")
+        self.classes = classes
+        self.default_class = default_class

@@ -183,3 +183,14 @@ class ProjectManagement(Namespace):
         )
         logger.info("Finish predict mask")
         emit("set_magic_points", response.__dict__, to=request.sid)
+
+    def on_set_classes(self, data):
+        classes = json.loads(data["classes"])
+        default_class = data["default_class"]
+        project_id = data["project_id"]
+        app.database.set_classes(project_id, classes, default_class)
+        project = app.database.get_project(project_id)
+        response = Response(
+            data=project.dict(), status=200, message="Classes set successfully"
+        )
+        emit("set_classes", response.__dict__, to=request.sid)

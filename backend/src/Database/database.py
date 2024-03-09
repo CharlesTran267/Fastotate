@@ -205,6 +205,11 @@ class Database:
         project.addClass(className)
         self.store_project(project)
 
+    def set_classes(self, projectId: str, classes: List[str], default_class: str):
+        project = self.get_project(projectId)
+        project.set_classes(classes, default_class)
+        self.store_project(project)
+
     def change_project_name(self, projectId: str, name: str) -> None:
         project = self.get_project(projectId)
         project.setProjectName(name)

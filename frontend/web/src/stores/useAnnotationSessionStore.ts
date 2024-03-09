@@ -88,6 +88,7 @@ type AnntationSessionStore = {
     changeProjectName: (name: string) => void;
     changeDefaultClass: (className: string) => void;
     addClass: (className: string) => void;
+    setClasses: (classes: string[], default_class: string) => void;
     setZoomLevel: (zoomLevel: number) => void;
     setStagePos: (x: number, y: number) => void;
     setMagicImage: (image_id: string) => void;
@@ -163,6 +164,11 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
         data: JSON.parse(data.data),
       };
       set(() => ({ response: response }));
+    });
+
+    socket.on('set_classes', (data: any) => {
+      console.log('Classes set');
+      set(() => ({ project: new Project(data.data) }));
     });
 
     return {
@@ -349,6 +355,16 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             `${backendURL}/get-coco-format?project_id=${project_id}`,
           );
           return response.data.data;
+        },
+        setClasses: (classes: string[], default_class: string) => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('set_classes', {
+            project_id: project_id,
+            classes: JSON.stringify(classes),
+            default_class: default_class,
+          });
         },
       },
     };
