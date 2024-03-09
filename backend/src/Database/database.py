@@ -267,6 +267,8 @@ class Database:
             raise Exception("user_data is not a string or a dict")
 
         if user.hashed_password == hashString(pass_word):
+            if user.activated is False:
+                raise KeyError("User not activated")
             session = LoginSession(user_id=user.user_id, expiry=3600)
             self.write_to_cache(session.session_token, session.json())
             return session.session_token
@@ -355,3 +357,61 @@ class Database:
         for imageAnn in project.imageAnnotations:
             image = self.get_image(imageAnn.image_id)
             self.store_image(image, cache_only=False)
+
+    def add_activation_code(self, user_email) -> None:
+        user = self.get_user_from_mongo(user_email)
+        if user is None:
+            raise KeyError(f"User {user_email} not found")
+        if user.activated:
+            raise KeyError("User already activated")
+
+        code = VerificationCode(user_id=user.user_id)
+        self.write_to_cache(code.code, code.json())
+        return code.code
+
+    def verify_code(self, user: User, verification_code: str) -> None:
+        code = self.read_from_cache(verification_code)
+        if code is None:
+            raise ValueError("Invalid verification code")
+        code = VerificationCode.parse_raw(code)
+        if code.user_id != user.user_id:
+            raise ValueError("Invalid verification code")
+
+        if code.isExpired():
+            raise ValueError("Cerification code expired")
+
+    def activate_user(self, user_email: str, verification_code: str) -> None:
+        user = self.get_user_from_mongo(user_email)
+        if user is None:
+            raise ValueError(f"User {user_email} not found")
+        if user.activated:
+            raise ValueError("User already activated")
+
+        self.verify_code(user, verification_code)
+        user = self.get_user_from_mongo(user_email)
+        user.activateAccount()
+        self.store_user(user, cache_only=False)
+        self.delete_from_cache(verification_code)
+
+    def add_password_reset_code(self, user_email) -> int:
+        user = self.get_user_from_mongo(user_email)
+        if user is None:
+            raise KeyError(f"User {user_email} not found")
+
+        code = VerificationCode(user_id=user.user_id)
+        self.write_to_cache(code.code, code.json())
+        return code.code
+
+    def reset_password(
+        self, user_email: str, verification_code: str, new_password: str
+    ) -> None:
+        user = self.get_user_from_mongo(user_email)
+        if user is None:
+            raise ValueError(f"User {user_email} not found")
+        if not user.activated:
+            raise ValueError("User not activated")
+
+        self.verify_code(user, verification_code)
+        user.hashed_password = hashString(new_password)
+        self.store_user(user, cache_only=False)
+        self.delete_from_cache(verification_code)

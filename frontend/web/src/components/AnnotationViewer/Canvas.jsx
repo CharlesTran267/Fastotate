@@ -12,10 +12,6 @@ import { AnnotationMode } from '@/types/AnnotationMode';
 import { getImage } from '@/stores/imageDatabase';
 import { LoadingModal } from '../LoadingModal';
 
-const RectangleAnnotation = dynamic(() => import('./RectangleAnnotation'), {
-  ssr: false,
-});
-
 const PolygonAnnotation = dynamic(() => import('./PolygonAnnotation'), {
   ssr: false,
 });
@@ -31,6 +27,8 @@ export default function Canvas() {
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
   );
+  const loading = useAnnotationSessionStore((state) => state.loading);
+
   const zoomLevel = useAnnotationSessionStore((state) => state.zoomLevel);
   const stagePos = useAnnotationSessionStore((state) => state.stagePos);
 
@@ -104,6 +102,7 @@ export default function Canvas() {
       ) {
         if (e.key === 'Escape') {
           setCurrentAnnotation(new Annotation());
+          setIsDrawingRect(false);
         } else if (e.key === ' ') {
           e.preventDefault();
           if (currentAnnotation.points.length > 2) {
@@ -163,8 +162,19 @@ export default function Canvas() {
       oriSize,
     );
     setMousePosOri(newMousePosOri);
+
+    if (annotationMode === AnnotationMode.RECTANGLE && isDrawingRect) {
+      const newPoints = [
+        currentAnnotation.points[0],
+        [currentAnnotation.points[0][0], mousePosOri[1]],
+        mousePosOri,
+        [mousePosOri[0], currentAnnotation.points[0][1]],
+      ];
+      setCurrentAnnotation({ ...currentAnnotation, points: newPoints });
+    }
   };
 
+  const [isDrawingRect, setIsDrawingRect] = useState(false);
   //drawing begins when mousedown event fires.
   const handleMouseDown = (e) => {
     //Check if ctrl key is pressed
@@ -185,13 +195,34 @@ export default function Canvas() {
       } else if (e.evt.button === 0) {
         setMagicLabels([...magicLabels, 1]);
       }
-      return;
+    } else if (annotationMode === AnnotationMode.POLYGON) {
+      setCurrentAnnotation({
+        ...currentAnnotation,
+        points: [...currentAnnotation.points, mousePosOri],
+      });
+    } else {
+      if (isDrawingRect) return;
+      setCurrentAnnotation({
+        ...currentAnnotation,
+        points: [mousePosOri, mousePosOri, mousePosOri, mousePosOri],
+      });
+      setIsDrawingRect(true);
     }
+  };
 
-    setCurrentAnnotation({
-      ...currentAnnotation,
-      points: [...currentAnnotation.points, mousePosOri],
-    });
+  const handleMouseUp = (e) => {
+    if (annotationMode === AnnotationMode.RECTANGLE && isDrawingRect) {
+      setIsDrawingRect(false);
+      if (currentAnnotation.points[0][0] === currentAnnotation.points[2][0]) {
+        setCurrentAnnotation(new Annotation());
+      } else {
+        sessionActions.addAnnotation(
+          currentAnnotation.points,
+          project.default_class,
+        );
+        setCurrentAnnotation(new Annotation());
+      }
+    }
   };
 
   const stageRef = useRef(null);
@@ -273,8 +304,6 @@ export default function Canvas() {
     };
   }, [stageRef.current]);
 
-  const loading = useAnnotationSessionStore((state) => state.loading);
-
   const [isDraggable, setIsDraggable] = useState(false);
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -316,6 +345,7 @@ export default function Canvas() {
                 height={imageSize.height || 302}
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
+                onMouseUp={handleMouseUp}
                 ref={stageRef}
                 draggable={isDraggable}
                 scaleX={zoomLevel}
@@ -346,6 +376,7 @@ export default function Canvas() {
                         oriSize={oriSize}
                         isFinished={true}
                         stage={stageRef.current}
+                        rect={false}
                       />
                     );
                   })}
@@ -356,6 +387,7 @@ export default function Canvas() {
                     oriSize={oriSize}
                     isFinished={false}
                     stage={stageRef.current}
+                    rect={isDrawingRect}
                   />
                   {annotationMode === AnnotationMode.MAGIC ? (
                     <MagicAnnotation

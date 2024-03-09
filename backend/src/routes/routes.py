@@ -65,8 +65,8 @@ def register():
     password = data["password"]
     try:
         app.database.add_new_user(email, password)
-    except KeyError:
-        response = Response(data=None, status=400, message="User already exists")
+    except Exception as e:
+        response = Response(data=None, status=400, message=str(e))
         return jsonify(response.__dict__)
 
     response = Response(data=None, status=200, message="User registered successfully")
@@ -81,11 +81,8 @@ def login():
 
     try:
         session_token = app.database.user_login(email, password)
-    except KeyError:
-        response = Response(data=None, status=400, message="User not found")
-        return jsonify(response.__dict__)
-    except ValueError:
-        response = Response(data=None, status=400, message="Incorrect password")
+    except Exception as e:
+        response = Response(data=None, status=400, message=str(e))
         return jsonify(response.__dict__)
 
     response = Response(
@@ -146,3 +143,68 @@ def save_project():
     app.database.save_project_to_db(user_email, project_id)
     response = Response(data=None, status=200, message="Project saved successfully")
     return jsonify(response.__dict__)
+
+
+@app.route("/api/send-activation-email", methods=["POST"])
+def send_activation_email():
+    data = request.json
+    user_email = data["email"]
+    try:
+        activation_code = app.database.add_activation_code(user_email)
+        app.mail_service.send_activation_email(user_email, activation_code)
+        response = Response(
+            data=None, status=200, message="Activation email sent successfully"
+        )
+        return jsonify(response.__dict__)
+    except Exception as e:
+        response = Response(data=None, status=400, message=str(e))
+        return jsonify(response.__dict__)
+
+
+@app.route("/api/send-reset-password-email", methods=["POST"])
+def send_reset_password_email():
+    data = request.json
+    user_email = data["email"]
+    try:
+        reset_code = app.database.add_password_reset_code(user_email)
+        app.mail_service.send_reset_password_email(user_email, reset_code)
+    except Exception as e:
+        response = Response(data=None, status=400, message=str(e))
+        return jsonify(response.__dict__)
+    response = Response(
+        data=None, status=200, message="Reset password email sent successfully"
+    )
+    return jsonify(response.__dict__)
+
+
+@app.route("/api/activate-account", methods=["POST"])
+def activate_account():
+    data = request.json
+    user_email = data["email"]
+    activation_code = data["activation_code"]
+    try:
+        app.database.activate_user(user_email, activation_code)
+        response = Response(
+            data=None, status=200, message="Account activated successfully"
+        )
+        return jsonify(response.__dict__)
+    except ValueError as e:
+        response = Response(data=None, status=400, message=str(e))
+        return jsonify(response.__dict__)
+
+
+@app.route("/api/reset-password", methods=["POST"])
+def reset_password():
+    data = request.json
+    user_email = data["email"]
+    reset_code = data["reset_code"]
+    new_password = data["new_password"]
+    try:
+        app.database.reset_password(user_email, reset_code, new_password)
+        response = Response(
+            data=None, status=200, message="Password reset successfully"
+        )
+        return jsonify(response.__dict__)
+    except ValueError as e:
+        response = Response(data=None, status=400, message=str(e))
+        return jsonify(response.__dict__)

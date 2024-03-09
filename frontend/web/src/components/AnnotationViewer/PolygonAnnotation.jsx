@@ -7,7 +7,8 @@ import { originalToRelativeCoords } from '../../utils/utils';
 
 export default function PolygonAnnotation(props) {
   const vertexRadius = 6;
-  const { annotation, mousePos, imageSize, oriSize, isFinished, stage } = props;
+  const { annotation, mousePos, imageSize, oriSize, isFinished, stage, rect } =
+    props;
 
   const annotationMode = useAnnotationSessionStore(
     (state) => state.annotationMode,
@@ -178,7 +179,7 @@ export default function PolygonAnnotation(props) {
 
     let newFlattenPoints = newRelativePoints.flat();
     if (!isFinished) {
-      newFlattenPoints = newFlattenPoints.concat(mousePos);
+      if (!rect) newFlattenPoints = newFlattenPoints.concat(mousePos);
       newFlattenPoints.push(newFlattenPoints[0], newFlattenPoints[1]);
     }
     setFlattenPoints(newFlattenPoints);
