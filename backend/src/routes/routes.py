@@ -38,6 +38,27 @@ def add_image():
     return jsonify(response.__dict__)
 
 
+@app.route("/api/add-video", methods=["POST"])
+def add_video():
+    data = request.form
+    image_list = [image.read() for image in request.files.getlist("images")]
+    project_id = data["project_id"]
+    file_name = data["file_name"]
+    fps = int(data["fps"])
+    video = app.database.add_new_video(image_list, file_name, fps, project_id)
+    videoInfo = {
+        "video_id": video.video_id,
+    }
+
+    project = app.database.get_project(project_id)
+    response = Response(
+        data={"project": project.dict(), "video": videoInfo},
+        status=200,
+        message="Video added successfully",
+    )
+    return jsonify(response.__dict__)
+
+
 @app.route("/api/get-image", methods=["GET"])
 def get_image():
     image_id = request.args.get("image_id")

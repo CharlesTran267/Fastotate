@@ -20,10 +20,11 @@ class ProjectManagement(Namespace):
     def on_add_annotation(self, data):
         project_id = data["project_id"]
         image_id = data["image_id"]
+        video_id = data["video_id"]
         points = json.loads(data["points"])
         class_name = data["class_name"]
         annotation = app.database.add_new_annotation(
-            project_id, image_id, points, class_name
+            project_id, image_id, points, class_name, video_id
         )
         project = app.database.get_project(project_id)
         response = Response(
@@ -34,12 +35,15 @@ class ProjectManagement(Namespace):
     def on_add_annotations(self, data):
         project_id = data["project_id"]
         image_id = data["image_id"]
+        video_id = data["video_id"]
         annotations = json.loads(data["annotations"])
         for annotation in annotations:
             points = annotation["points"]
             class_name = annotation["className"]
             logger.debug(f"Adding annotation {annotation}")
-            app.database.add_new_annotation(project_id, image_id, points, class_name)
+            app.database.add_new_annotation(
+                project_id, image_id, points, class_name, video_id
+            )
         project = app.database.get_project(project_id)
         response = Response(
             data=project.dict(), status=200, message="Annotations added successfully"
@@ -51,11 +55,12 @@ class ProjectManagement(Namespace):
         logger.debug("Modifying annotation")
         project_id = data["project_id"]
         image_id = data["image_id"]
+        video_id = data["video_id"]
         annotation_id = data["annotation_id"]
         points = json.loads(data["points"])
         class_name = data["class_name"]
         app.database.modify_annotation(
-            project_id, image_id, annotation_id, points, class_name
+            project_id, image_id, annotation_id, points, class_name, video_id
         )
         project = app.database.get_project(project_id)
         response = Response(
@@ -85,8 +90,9 @@ class ProjectManagement(Namespace):
     def on_delete_annotation(self, data):
         project_id = data["project_id"]
         image_id = data["image_id"]
+        video_id = data["video_id"]
         annotation_id = data["annotation_id"]
-        app.database.delete_annotation(project_id, image_id, annotation_id)
+        app.database.delete_annotation(project_id, image_id, annotation_id, video_id)
         project = app.database.get_project(project_id)
         response = Response(
             data=project.dict(), status=200, message="Annotation deleted successfully"
@@ -194,3 +200,13 @@ class ProjectManagement(Namespace):
             data=project.dict(), status=200, message="Classes set successfully"
         )
         emit("set_classes", response.__dict__, to=request.sid)
+
+    def on_delete_video(self, data):
+        project_id = data["project_id"]
+        video_id = data["video_id"]
+        app.database.delete_video(project_id, video_id)
+        project = app.database.get_project(project_id)
+        response = Response(
+            data=project.dict(), status=200, message="Video deleted successfully"
+        )
+        emit("delete_video", response.__dict__, to=request.sid)

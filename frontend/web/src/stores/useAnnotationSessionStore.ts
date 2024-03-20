@@ -2,7 +2,8 @@ import { AnnotationMode } from '@/types/AnnotationMode';
 import { create } from 'zustand';
 import axios from 'axios';
 import { socket } from '@/utils/socket';
-import { addImage, deleteImage } from './imageDatabase';
+import { addImage, addVideo, deleteImage } from './imageDatabase';
+import { VideoToFrames, VideoToFramesMethod } from '@/utils/VideotoFrame';
 
 export class Annotation {
   annotation_id: string;
@@ -38,12 +39,45 @@ export class ImageAnnotation {
   }
 }
 
+export class VideoFrame extends ImageAnnotation {
+  frame_number: number;
+
+  constructor(data: any) {
+    super(data);
+    this.frame_number = data.frame_number;
+  }
+}
+
+export class VideoAnnotation {
+  video_id: string;
+  file_name: string;
+  videoFrames: VideoFrame[];
+  fps: number;
+
+  constructor(data: any) {
+    this.video_id = data.video_id;
+    this.file_name = data.file_name;
+    this.fps = data.fps;
+    this.videoFrames = data.videoFrames.map(
+      (frame: any) => new VideoFrame(frame),
+    );
+  }
+
+  getTotalAnnotations() {
+    return this.videoFrames.reduce(
+      (acc, frame) => acc + frame.annotations.length,
+      0,
+    );
+  }
+}
+
 export class Project {
   project_id: string;
   name: string;
   classes: string[];
   default_class: string;
   imageAnnotations: ImageAnnotation[];
+  videoAnnotations: VideoAnnotation[];
 
   constructor(data: any) {
     this.project_id = data.project_id;
@@ -54,6 +88,9 @@ export class Project {
       const newImage = new ImageAnnotation(image);
       return newImage;
     });
+    this.videoAnnotations = data.videoAnnotations.map(
+      (video: any) => new VideoAnnotation(video),
+    );
   }
 }
 
@@ -61,6 +98,8 @@ type AnntationSessionStore = {
   annotationMode: AnnotationMode | null;
   selectedImageID: string | null;
   selectedAnnotationID: string | null;
+  selectedVideoID: string | null;
+  frameNumber: number | null;
   project: Project | null;
   zoomLevel: number;
   stagePos: { x: number; y: number };
@@ -71,15 +110,20 @@ type AnntationSessionStore = {
     setAnnotationMode: (mode: AnnotationMode) => void;
     setSelectedImageID: (imageID: string) => void;
     setSelectedAnnotationID: (annotationID: string) => void;
+    setSelectedVideoID: (videoID: string | null) => void;
+    setFrameNumber: (frameNumber: number | null) => void;
     uploadImage: (image: File, project_id: string) => void;
+    uploadVideo: (video: File, project_id: string) => void;
     addAnnotation: (points: number[], className: string) => void;
     addAnnotations: (
       annotations: { points: number[]; className: string }[],
     ) => void;
     removeSelectedAnnotation: () => void;
     removeSelectedImage: () => void;
+    removeSelectedVideo: () => void;
     getSelectedImage: () => ImageAnnotation | null;
     getSelectedAnnotation: () => Annotation | null;
+    getSelectedVideo: () => VideoAnnotation | null;
     modifySelectedAnnotation: (
       points: number[],
       className: string,
@@ -91,7 +135,7 @@ type AnntationSessionStore = {
     setClasses: (classes: string[], default_class: string) => void;
     setZoomLevel: (zoomLevel: number) => void;
     setStagePos: (x: number, y: number) => void;
-    setMagicImage: (image_id: string) => void;
+    setMagicImage: () => void;
     setMagicPoints: (points: number[], labels: number[]) => void;
     getProjectCOCOformat: () => object;
   };
@@ -171,10 +215,16 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
       set(() => ({ project: new Project(data.data) }));
     });
 
+    socket.on('delete_video', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
     return {
       annotationMode: AnnotationMode.SELECT,
       selectedImageID: null,
       selectedAnnotationID: null,
+      selectedVideoID: null,
+      frameNumber: null,
       project: null,
       zoomLevel: 1,
       stagePos: { x: 0, y: 0 },
@@ -191,6 +241,19 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           set(() => ({ selectedAnnotationID: annotationID })),
         setSelectedImageID: (imageID: string) =>
           set(() => ({ selectedImageID: imageID })),
+        setSelectedVideoID(videoID: string | null) {
+          set(() => ({ selectedVideoID: videoID }));
+        },
+        setFrameNumber(frameNumber: number | null) {
+          const selectedVideo = get().actions.getSelectedVideo();
+          if (!selectedVideo) return;
+          if (
+            frameNumber !== null &&
+            (frameNumber < 0 || frameNumber >= selectedVideo.videoFrames.length)
+          )
+            return;
+          set(() => ({ frameNumber }));
+        },
         uploadImage: async (image: File, project_id: string) => {
           const formData = new FormData();
           formData.append('image', image);
@@ -217,6 +280,42 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             console.error('Error uploading image:', error);
           }
         },
+        uploadVideo: async (video: File, project_id: string) => {
+          const formData = new FormData();
+          const videoUrl = URL.createObjectURL(video);
+          const fps = 2;
+          const frames = await VideoToFrames.getFrames(
+            videoUrl,
+            fps,
+            VideoToFramesMethod.fps,
+          );
+          frames.forEach((frame) => {
+            formData.append('images', frame);
+          });
+          formData.append('project_id', project_id);
+          formData.append('file_name', video.name);
+          formData.append('fps', fps.toString());
+          try {
+            // Send a POST request with the formData
+            const response = await axios.post(
+              `${backendURL}/add-video`,
+              formData,
+              {
+                headers: {
+                  // Inform the server about the multipart/form-data content type
+                  'Content-Type': 'multipart/form-data',
+                },
+              },
+            );
+            set(() => ({
+              project: new Project(response.data.data['project']),
+            }));
+            const video_id = response.data.data['video']['video_id'];
+            await addVideo(frames, video_id);
+          } catch (error) {
+            console.error('Error uploading video:', error);
+          }
+        },
         addAnnotation: (points: number[], className: string) => {
           const project_id = get().project?.project_id;
           if (!project_id) return;
@@ -224,6 +323,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           socket.emit('add_annotation', {
             project_id: project_id,
             image_id: get().selectedImageID,
+            video_id: get().selectedVideoID,
             points: JSON.stringify(points),
             class_name: className,
           });
@@ -235,6 +335,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           socket.emit('delete_annotation', {
             project_id: project_id,
             image_id: get().selectedImageID,
+            video_id: get().selectedVideoID,
             annotation_id: get().selectedAnnotationID,
           });
         },
@@ -248,11 +349,26 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           });
           await deleteImage(get().selectedImageID!);
         },
+        removeSelectedVideo: () => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          socket.emit('delete_video', {
+            project_id: project_id,
+            video_id: get().selectedVideoID,
+          });
+        },
         getSelectedImage: () => {
           if (get().selectedImageID) {
-            const selectedImage = get().project?.imageAnnotations.find(
+            let selectedImage = get().project?.imageAnnotations.find(
               (image) => image.image_id === get().selectedImageID,
             );
+            if (!selectedImage) {
+              selectedImage = get()
+                .project?.videoAnnotations.map((video) => video.videoFrames)
+                .flat()
+                .find((image) => image.image_id === get().selectedImageID);
+            }
             return selectedImage || null;
           }
           return null;
@@ -268,6 +384,15 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           }
           return null;
         },
+        getSelectedVideo: () => {
+          if (get().selectedVideoID) {
+            const selectedVideo = get().project?.videoAnnotations.find(
+              (video) => video.video_id === get().selectedVideoID,
+            );
+            return selectedVideo || null;
+          }
+          return null;
+        },
         modifySelectedAnnotation: (
           points: number[],
           className: string,
@@ -279,6 +404,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           socket.emit('modify_annotation', {
             project_id: project_id,
             image_id: get().selectedImageID,
+            video_id: get().selectedVideoID,
             annotation_id: annotation_id,
             points: JSON.stringify(points),
             class_name: className,
@@ -314,10 +440,13 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
         setZoomLevel: (zoomLevel: number) => set(() => ({ zoomLevel })),
         setStagePos: (x: number, y: number) =>
           set(() => ({ stagePos: { x, y } })),
-        setMagicImage: (image_id: string) => {
-          console.log('Setting magic image:', image_id);
+        setMagicImage: () => {
           const project_id = get().project?.project_id;
           if (!project_id) return;
+
+          const image_id = get().selectedImageID;
+          if (!image_id) return;
+          console.log('Setting magic image:', image_id);
 
           socket.emit('set_magic_image', {
             project_id: project_id,
@@ -331,6 +460,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           socket.emit('set_magic_points', {
             project_id: project_id,
             image_id: get().selectedImageID,
+            video_id: get().selectedVideoID,
             points: JSON.stringify(points),
             labels: JSON.stringify(labels),
           });
@@ -344,6 +474,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           socket.emit('add_annotations', {
             project_id: project_id,
             image_id: get().selectedImageID,
+            video_id: get().selectedVideoID,
             annotations: JSON.stringify(annotations),
           });
         },

@@ -26,16 +26,35 @@ export default function ProjectSideBar() {
     }
   };
 
+  const [extractingFrames, setExtractingFrames] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handleFileInputChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const files = e.target.files;
+    if (files === null) return;
+    const totalSize = Array.from(files).reduce(
+      (acc, file) => acc + file.size,
+      0,
+    );
+    if (totalSize > 1024 * 1024 * 10) {
+      alert('Total size of files should be less than 10MB');
+      return;
+    }
+
+    setUploading(true);
     if (files) {
       for (let i = 0; i < files.length; i++) {
-        await sessionActions.uploadImage(files[i], projectId);
+        const fileType = files[i].type.split('/')[0];
+        if (fileType === 'video') {
+          await sessionActions.uploadVideo(files[i], projectId);
+        } else {
+          await sessionActions.uploadImage(files[i], projectId);
+        }
       }
     }
+    setUploading(false);
   };
   const handleExportProject = async () => {
     setLoading(true);
@@ -111,10 +130,23 @@ export default function ProjectSideBar() {
     }
   }, [loading]);
 
+  useEffect(() => {
+    const modal = document.getElementById(
+      'uploading_modal',
+    ) as HTMLDialogElement;
+    if (modal == null) return;
+
+    if (uploading) {
+      modal.showModal();
+    } else {
+      if (modal.open) modal.close();
+    }
+  }, [uploading]);
+
   return (
     <aside className="flex h-full w-60 flex-col bg-neutral">
       <ProjectNameEditor />
-      <div className="flex h-4/5 flex-col justify-between border-b-4 border-base-100">
+      <div className="flex h-2/3 flex-col justify-between border-b-4 border-base-100">
         <div className="overflow-y-auto border-b-2 border-base-100">
           <ImageTable />
         </div>
@@ -125,7 +157,7 @@ export default function ProjectSideBar() {
             onChange={handleFileInputChange}
             ref={fileInputRef}
             multiple
-            accept="image/*"
+            accept="image/*, video/*"
           ></input>
           <button
             className="btn btn-accent p-1"
@@ -156,6 +188,11 @@ export default function ProjectSideBar() {
         modal_id="saving_modal"
         modal_title="Saving Project"
         modal_message="Saving Project To Persisted Database"
+      />
+      <LoadingModal
+        modal_id="uploading_modal"
+        modal_title="Uploading Files"
+        modal_message="Uploading Files to Server"
       />
       <dialog id="save_project_warning_modal" className="modal">
         <form method="dialog" className="modal-backdrop">

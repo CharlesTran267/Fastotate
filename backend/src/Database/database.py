@@ -8,6 +8,8 @@ from .models import (
     User,
     LoginSession,
     VerificationCode,
+    VideoAnnotation,
+    VideoFrame,
 )
 from ..logger import logger
 import torch
@@ -134,9 +136,11 @@ class Database:
         else:
             logger.warning(f"Project {projectId} not in user projects list")
 
-    def get_image_annotation(self, projectId: str, imageId: str) -> ImageAnnotation:
+    def get_image_annotation(
+        self, projectId: str, imageId: str, video_id: str = None
+    ) -> ImageAnnotation:
         project = self.get_project(projectId)
-        return project.getImageAnnotation(imageId)
+        return project.getImageAnnotation(imageId, video_id)
 
     def add_new_project(self, session_token: str = None) -> Project:
         project = Project()
@@ -160,13 +164,18 @@ class Database:
 
         newImage = Image(image_bytes=image, image_id=newImageAnnotation.image_id)
         self.store_image(newImage)
-        return newImage
+        return newImageAnnotation
 
     def add_new_annotation(
-        self, projectId: str, imageId: str, points: List[List[int]], className: str
+        self,
+        projectId: str,
+        imageId: str,
+        points: List[List[int]],
+        className: str,
+        videoId: str = None,
     ) -> Annotation:
         project = self.get_project(projectId)
-        image = project.getImageAnnotation(imageId)
+        image = project.getImageAnnotation(imageId, videoId)
         annotation = Annotation(className=className, points=points)
         image.addAnnotation(annotation)
         self.store_project(project)
@@ -179,9 +188,10 @@ class Database:
         annotationId: str,
         points: List[List[int]],
         class_name: str,
+        videoId: str = None,
     ) -> None:
         project = self.get_project(projectId)
-        image = project.getImageAnnotation(imageId)
+        image = project.getImageAnnotation(imageId, videoId)
         annotation = image.getAnnotation(annotationId)
         annotation.modify_annotation(points, class_name)
         self.store_project(project)
@@ -193,10 +203,10 @@ class Database:
         self.store_project(project)
 
     def delete_annotation(
-        self, projectId: str, imageId: str, annotationId: str
+        self, projectId: str, imageId: str, annotationId: str, videoId: str = None
     ) -> None:
         project = self.get_project(projectId)
-        image = project.getImageAnnotation(imageId)
+        image = project.getImageAnnotation(imageId, videoId)
         image.removeAnnotation(annotationId)
         self.store_project(project)
 
@@ -428,3 +438,38 @@ class Database:
         user.hashed_password = hashString(new_password)
         self.store_user(user, cache_only=False)
         self.delete_from_cache(verification_code)
+
+    def add_new_video(
+        self, images: List[bytes], file_name: str, fps: int, project_id: str
+    ) -> None:
+        videoAnnotation = VideoAnnotation(file_name=file_name, fps=fps)
+        for idx, image in enumerate(images):
+            imageObj = PIL.Image.open(io.BytesIO(image))
+            width, height = imageObj.size
+            newFrame = VideoFrame(
+                frame_number=idx,
+                width=width,
+                height=height,
+                file_name=f"{file_name}_{idx}",
+            )
+            videoAnnotation.addFrames(newFrame)
+            newImage = Image(image_bytes=image, image_id=newFrame.image_id)
+            self.store_image(newImage)
+
+        project = self.get_project(project_id)
+        project.addVideoAnnotation(videoAnnotation)
+        self.store_project(project)
+        return videoAnnotation
+
+    def delete_video(self, project_id: str, video_id: str) -> None:
+        project = self.get_project(project_id)
+        video = project.getVideoAnnotation(video_id)
+
+        if video is None:
+            logger.warning(f"Video {video_id} not found")
+            return
+        for frame in video.videoFrames:
+            self.delete_db("images", frame.image_id, query={"image_id": frame.image_id})
+
+        project.removeVideoAnnotation(video_id)
+        self.store_project(project)

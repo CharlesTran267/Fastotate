@@ -57,7 +57,7 @@ export default function MagicAnnotation(props) {
   }, [magicPoints, magicLabels]);
 
   useEffect(() => {
-    sessionActions.setMagicImage(selectedImageID);
+    sessionActions.setMagicImage();
     setLoading(true);
   }, [selectedImageID]);
 

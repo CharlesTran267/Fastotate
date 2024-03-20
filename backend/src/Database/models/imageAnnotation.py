@@ -11,7 +11,7 @@ from ...utils.serialisableTensor import TorchTensor
 class ImageAnnotation(BaseModel):
     image_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     annotations: List[Annotation] = []
-    file_name: str = None
+    file_name: str
     width: Optional[int] = 0
     height: Optional[int] = 0
 

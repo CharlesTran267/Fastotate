@@ -5,6 +5,9 @@ export default function ImageTable() {
   const selectedImageID = useAnnotationSessionStore(
     (state) => state.selectedImageID,
   );
+  const selectedVideoID = useAnnotationSessionStore(
+    (state) => state.selectedVideoID,
+  );
 
   const project = useAnnotationSessionStore((state) => state.project);
 
@@ -21,7 +24,10 @@ export default function ImageTable() {
           <tr
             className="bg-neutral hover:cursor-pointer hover:bg-slate-500"
             key={image.image_id}
-            onClick={() => sessionActions.setSelectedImageID(image.image_id)}
+            onClick={() => {
+              sessionActions.setSelectedImageID(image.image_id);
+              sessionActions.setSelectedVideoID(null);
+            }}
           >
             <td
               className="h-10 whitespace-nowrap"
@@ -38,9 +44,41 @@ export default function ImageTable() {
             </th>
           </tr>
         ))}
+        {project?.videoAnnotations.map((video) => (
+          <tr
+            className="bg-neutral hover:cursor-pointer hover:bg-slate-500"
+            key={video.video_id}
+            onClick={() => {
+              sessionActions.setSelectedVideoID(video.video_id);
+              sessionActions.setSelectedImageID(video.videoFrames[0].image_id);
+              sessionActions.setFrameNumber(0);
+            }}
+          >
+            <td
+              className="h-10 whitespace-nowrap"
+              style={
+                video.video_id === selectedVideoID
+                  ? { backgroundColor: 'slateblue' }
+                  : {}
+              }
+            >
+              {video.file_name}
+            </td>
+            <th className="bg-neutral text-center">
+              {video.getTotalAnnotations()}
+            </th>
+          </tr>
+        ))}
 
-        {project && project.imageAnnotations.length < 10
-          ? [...Array(12 - project.imageAnnotations.length)].map((_, i) => (
+        {project &&
+        project.imageAnnotations.length + project.videoAnnotations.length < 13
+          ? [
+              ...Array(
+                13 -
+                  (project.imageAnnotations.length +
+                    project.videoAnnotations.length),
+              ),
+            ].map((_, i) => (
               <tr className="bg-neutral hover:bg-slate-500" key={i}>
                 <td className="h-10 whitespace-nowrap"></td>
                 <th className="bg-neutral text-center"></th>

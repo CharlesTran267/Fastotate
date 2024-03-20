@@ -29,7 +29,7 @@ export function AnnotationEditor() {
   };
 
   return (
-    <div className="flex min-h-40 flex-col items-center border-b-4 border-base-100">
+    <div className="flex h-1/4 min-h-40 flex-col items-center border-b-4 border-base-100">
       <h1 className="mt-3 text-xl font-bold text-base-100">
         Annotation Editor
       </h1>

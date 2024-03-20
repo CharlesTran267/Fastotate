@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { BiSolidHide, BiSolidShow } from 'react-icons/bi';
-import axios from 'axios';
-import { set } from 'lodash';
 import { useUserSessionStore } from '@/stores/useUserSessionStore';
 
 type FormData = {

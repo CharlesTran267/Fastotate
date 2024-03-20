@@ -9,8 +9,9 @@ import {
   Annotation,
 } from '@/stores/useAnnotationSessionStore';
 import { AnnotationMode } from '@/types/AnnotationMode';
-import { getImage } from '@/stores/imageDatabase';
+import { getImage, getVideo } from '@/stores/imageDatabase';
 import { LoadingModal } from '../Modals/LoadingModal';
+import VideoController from './VideoController';
 
 const PolygonAnnotation = dynamic(() => import('./PolygonAnnotation'), {
   ssr: false,
@@ -22,6 +23,7 @@ const MagicAnnotation = dynamic(() => import('./MagicAnnotation'), {
 
 export default function Canvas() {
   const defaultWidthinRem = 50;
+  const maxHeightinRem = 50;
 
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
   const annotationMode = useAnnotationSessionStore(
@@ -33,10 +35,13 @@ export default function Canvas() {
   const stagePos = useAnnotationSessionStore((state) => state.stagePos);
 
   const project = useAnnotationSessionStore((state) => state.project);
+  const selectedVideoID = useAnnotationSessionStore(
+    (state) => state.selectedVideoID,
+  );
+  const frameNumber = useAnnotationSessionStore((state) => state.frameNumber);
   const selectedImageID = useAnnotationSessionStore(
     (state) => state.selectedImageID,
   );
-
   const selectedImage = sessionActions.getSelectedImage();
   const [image, setImage] = useState(null);
   const imageRef = useRef(null);
@@ -52,7 +57,16 @@ export default function Canvas() {
   const [magicLabels, setMagicLabels] = useState([]);
 
   const imageElement = useMemo(async () => {
-    if (typeof window !== 'undefined' && selectedImage != null) {
+    if (
+      typeof window !== 'undefined' &&
+      (selectedImage != null || selectedVideoID != null)
+    ) {
+      if (selectedVideoID != null) {
+        const newVideo = await getVideo(selectedVideoID);
+        const element = new window.Image();
+        element.src = URL.createObjectURL(newVideo[frameNumber]);
+        return element;
+      }
       const element = new window.Image();
       const newImage = await getImage(selectedImage.image_id);
       element.src = URL.createObjectURL(newImage);
@@ -70,11 +84,22 @@ export default function Canvas() {
             width: element.width,
             height: element.height,
           });
-          setImageSize({
-            width: remToPixels(defaultWidthinRem),
-            height:
-              (element.height / element.width) * remToPixels(defaultWidthinRem),
-          });
+          const newHeightinRem =
+            (element.height / element.width) * defaultWidthinRem;
+          if (newHeightinRem > maxHeightinRem) {
+            setImageSize({
+              width:
+                (element.width / element.height) * remToPixels(maxHeightinRem),
+              height: remToPixels(maxHeightinRem),
+            });
+          } else {
+            setImageSize({
+              width: remToPixels(defaultWidthinRem),
+              height:
+                (element.height / element.width) *
+                remToPixels(defaultWidthinRem),
+            });
+          }
           setImage(element);
           imageRef.current = element;
         })
@@ -336,9 +361,15 @@ export default function Canvas() {
           modal_title="Encoding Image"
           modal_message="This may take longer on the first try"
         />
-        <div className="max-w-4xl">
+        <div className="flex max-w-4xl flex-col">
           {selectedImage != null ? (
             <>
+              <div className="my-4 flex justify-end">
+                <p>
+                  X: {Math.round(mousePosOri[0] * 100) / 100}, Y:{' '}
+                  {Math.round(mousePosOri[1] * 100) / 100}
+                </p>
+              </div>
               <Stage
                 id="canvas-stage"
                 width={imageSize.width || 650}
@@ -401,12 +432,7 @@ export default function Canvas() {
                   ) : null}
                 </Layer>
               </Stage>
-              <div className="float-end my-4">
-                <p>
-                  X: {Math.round(mousePosOri[0] * 100) / 100}, Y:{' '}
-                  {Math.round(mousePosOri[1] * 100) / 100}
-                </p>
-              </div>
+              {selectedVideoID != null ? <VideoController /> : null}
             </>
           ) : null}
         </div>

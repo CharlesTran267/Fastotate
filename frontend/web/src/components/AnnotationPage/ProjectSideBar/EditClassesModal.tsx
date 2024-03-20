@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { RiDeleteBin5Line } from 'react-icons/ri';
 import { FaX } from 'react-icons/fa6';
 import { FaCheck } from 'react-icons/fa';
-import { add, set } from 'lodash';
 
 export default function EditClassesModal() {
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
@@ -86,15 +85,15 @@ export default function EditClassesModal() {
               </tr>
             </thead>
             <tbody>
-              {classes.map((c) => (
-                <tr>
+              {classes.map((c, index) => (
+                <tr key={index}>
                   <td>{c}</td>
                   <td className="flex items-center justify-between">
                     <input
                       type="radio"
                       name="radio-1"
                       className="radio"
-                      checked={c === defaultClass}
+                      defaultChecked={c === defaultClass}
                       onClick={() => handleChangeDefaultClass(c)}
                     />
                     <button
