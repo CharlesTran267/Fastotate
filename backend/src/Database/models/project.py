@@ -87,13 +87,13 @@ class Project(BaseModel):
         # Make sure all annotations are in the new classes
         for image in self.imageAnnotations:
             for annotation in image.annotations:
-                if annotation.class_name not in classes:
-                    annotation.class_name = default_class
+                if annotation.className not in classes:
+                    annotation.className = default_class
         for video in self.videoAnnotations:
             for frame in video.videoFrames:
                 for annotation in frame.annotations:
-                    if annotation.class_name not in classes:
-                        annotation.class_name = default_class
+                    if annotation.className not in classes:
+                        annotation.className = default_class
 
     def addVideoAnnotation(self, videoAnnotation: VideoAnnotation) -> None:
         self.videoAnnotations.append(videoAnnotation)

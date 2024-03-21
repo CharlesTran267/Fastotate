@@ -35,7 +35,10 @@ export class VideoToFrames {
             totalFrames = duration * amount;
           }
           for (let time = 0; time < duration; time += duration / totalFrames) {
+            const start = performance.now();
             frames.push(await that.getVideoFrame(video, context, canvas, time));
+            const end = performance.now();
+            console.log('Time to extract frame:', end - start);
           }
           resolve(frames);
         });
@@ -70,9 +73,12 @@ export class VideoToFrames {
     time: number,
     resolve: (frame: File) => void,
   ) {
+    const start = performance.now();
     context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
     canvas.toBlob((blob) => {
       resolve(new File([blob!], `frame-${time}.png`, { type: 'image/png' }));
     });
+    const end = performance.now();
+    console.log('Time to store frame:', end - start);
   }
 }

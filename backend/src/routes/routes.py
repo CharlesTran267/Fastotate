@@ -229,3 +229,16 @@ def reset_password():
     except ValueError as e:
         response = Response(data=None, status=400, message=str(e))
         return jsonify(response.__dict__)
+
+
+@app.route("/api/interpolate-annotations", methods=["POST"])
+def interpolate_annotations():
+    data = request.json
+    project_id = data["project_id"]
+    video_id = data["video_id"]
+    app.database.interpolate_annotations(project_id, video_id)
+    project = app.database.get_project(project_id)
+    response = Response(
+        data=project.dict(), status=200, message="Annotations interpolated successfully"
+    )
+    return jsonify(response.__dict__)

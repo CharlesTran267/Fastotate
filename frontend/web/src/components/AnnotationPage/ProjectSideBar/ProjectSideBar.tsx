@@ -18,10 +18,15 @@ export default function ProjectSideBar() {
   const selectedImageID = useAnnotationSessionStore(
     (state) => state.selectedImageID,
   );
+  const selectedVideoID = useAnnotationSessionStore(
+    (state) => state.selectedVideoID,
+  );
   const [loading, setLoading] = useState(false);
 
   const handledeleteImage = () => {
-    if (selectedImageID) {
+    if (selectedVideoID) {
+      sessionActions.removeSelectedVideo();
+    } else if (selectedImageID) {
       sessionActions.removeSelectedImage();
     }
   };
@@ -192,7 +197,7 @@ export default function ProjectSideBar() {
       <LoadingModal
         modal_id="uploading_modal"
         modal_title="Uploading Files"
-        modal_message="Uploading Files to Server"
+        modal_message="Extracting frames and uploading files to Server"
       />
       <dialog id="save_project_warning_modal" className="modal">
         <form method="dialog" className="modal-backdrop">

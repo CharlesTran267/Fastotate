@@ -26,7 +26,7 @@ export default function MagicAnnotation(props) {
     (state) => state.annotationMode,
   );
   const project = useAnnotationSessionStore((state) => state.project);
-
+  const videoPlaying = useAnnotationSessionStore((state) => state.videoPlaying);
   const [loading, setLoading] = useState(false);
 
   const socketResponse = useAnnotationSessionStore((state) => state.response);
@@ -57,9 +57,10 @@ export default function MagicAnnotation(props) {
   }, [magicPoints, magicLabels]);
 
   useEffect(() => {
+    if (selectedImageID === null || videoPlaying) return;
     sessionActions.setMagicImage();
     setLoading(true);
-  }, [selectedImageID]);
+  }, [selectedImageID, videoPlaying]);
 
   useEffect(() => {
     const handleKeyPress = (e) => {

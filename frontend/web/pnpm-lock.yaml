@@ -23,6 +23,9 @@ dependencies:
   eslint-plugin-tailwindcss:
     specifier: ^3.14.2
     version: 3.14.2(tailwindcss@3.4.1)
+  ffmpeg:
+    specifier: ^0.0.4
+    version: 0.0.4
   ffmpeg-extract-frames:
     specifier: ^2.0.2
     version: 2.0.2
@@ -2175,6 +2178,15 @@ packages:
       }
     dependencies:
       execa: 0.10.0
+    dev: false
+
+  /ffmpeg@0.0.4:
+    resolution:
+      {
+        integrity: sha512-3TgWUJJlZGQn+crJFyhsO/oNeRRnGTy6GhgS98oUCIfZrOW5haPPV7DUfOm3xJcHr5q3TJpjk2GudPutrNisRA==,
+      }
+    dependencies:
+      when: 3.7.8
     dev: false
 
   /file-entry-cache@6.0.1:
@@ -5032,6 +5044,13 @@ packages:
     dependencies:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
+    dev: false
+
+  /when@3.7.8:
+    resolution:
+      {
+        integrity: sha512-5cZ7mecD3eYcMiCH4wtRPA5iFJZ50BJYDfckI5RRpQiktMiYTcn0ccLTZOvcbBume+1304fQztxeNzNS9Gvrnw==,
+      }
     dev: false
 
   /which-boxed-primitive@1.0.2:

@@ -41,10 +41,12 @@ export class ImageAnnotation {
 
 export class VideoFrame extends ImageAnnotation {
   frame_number: number;
+  keyFrame: boolean;
 
   constructor(data: any) {
     super(data);
     this.frame_number = data.frame_number;
+    this.keyFrame = data.keyFrame;
   }
 }
 
@@ -105,6 +107,7 @@ type AnntationSessionStore = {
   stagePos: { x: number; y: number };
   response: object | null;
   loading: boolean;
+  videoPlaying: boolean;
   actions: {
     updateProject: (project_id: string) => void;
     setAnnotationMode: (mode: AnnotationMode) => void;
@@ -138,6 +141,9 @@ type AnntationSessionStore = {
     setMagicImage: () => void;
     setMagicPoints: (points: number[], labels: number[]) => void;
     getProjectCOCOformat: () => object;
+    setVideoPlaying: (playing: boolean) => void;
+    setKeyFrame: (frame_number: number, is_key: boolean) => void;
+    interpolateAnnotations: () => void;
   };
 };
 
@@ -219,6 +225,14 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
       set(() => ({ project: new Project(data.data) }));
     });
 
+    socket.on('set_key_frame', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
+    socket.on('interpolate_annotations', (data: any) => {
+      set(() => ({ project: new Project(data.data) }));
+    });
+
     return {
       annotationMode: AnnotationMode.SELECT,
       selectedImageID: null,
@@ -230,6 +244,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
       stagePos: { x: 0, y: 0 },
       response: null,
       loading: false,
+      videoPlaying: false,
       actions: {
         updateProject: (project_id: string) => {
           set(() => ({ loading: true }));
@@ -283,7 +298,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
         uploadVideo: async (video: File, project_id: string) => {
           const formData = new FormData();
           const videoUrl = URL.createObjectURL(video);
-          const fps = 2;
+          const fps = 10;
           const frames = await VideoToFrames.getFrames(
             videoUrl,
             fps,
@@ -496,6 +511,43 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             classes: JSON.stringify(classes),
             default_class: default_class,
           });
+        },
+        setVideoPlaying: (playing: boolean) => {
+          set(() => ({ videoPlaying: playing }));
+        },
+        setKeyFrame: (frame_number: number, is_key: boolean) => {
+          const project_id = get().project?.project_id;
+          if (!project_id || !get().selectedVideoID) return;
+
+          socket.emit('set_key_frame', {
+            project_id: project_id,
+            video_id: get().selectedVideoID,
+            frame_number: frame_number,
+            is_key: is_key,
+          });
+        },
+        interpolateAnnotations: async () => {
+          const project_id = get().project?.project_id;
+          if (project_id === null || get().selectedVideoID === null) return;
+
+          let formData = new FormData();
+          formData.append('project_id', project_id as string);
+          formData.append('video_id', get().selectedVideoID!);
+
+          try {
+            const response = await axios.post(
+              `${backendURL}/interpolate-annotations`,
+              formData,
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              },
+            );
+            set(() => ({ project: new Project(response.data.data) }));
+          } catch (error) {
+            console.error('Error interpolating annotations:', error);
+          }
         },
       },
     };

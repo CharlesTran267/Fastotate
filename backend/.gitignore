@@ -4,6 +4,7 @@
 *.ipynb
 test.py
 test*.py
+test*.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

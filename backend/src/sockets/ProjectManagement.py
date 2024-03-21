@@ -210,3 +210,27 @@ class ProjectManagement(Namespace):
             data=project.dict(), status=200, message="Video deleted successfully"
         )
         emit("delete_video", response.__dict__, to=request.sid)
+
+    def on_set_key_frame(self, data):
+        project_id = data["project_id"]
+        video_id = data["video_id"]
+        frame_number = data["frame_number"]
+        is_key_frame = bool(data["is_key"])
+        app.database.set_key_frame(project_id, video_id, frame_number, is_key_frame)
+        project = app.database.get_project(project_id)
+        response = Response(
+            data=project.dict(), status=200, message="Key frame added successfully"
+        )
+        emit("set_key_frame", response.__dict__, to=request.sid)
+
+    def on_interpolate_annotations(self, data):
+        project_id = data["project_id"]
+        video_id = data["video_id"]
+        app.database.interpolate_annotations(project_id, video_id)
+        project = app.database.get_project(project_id)
+        response = Response(
+            data=project.dict(),
+            status=200,
+            message="Annotations interpolated successfully",
+        )
+        emit("interpolate_annotations", response.__dict__, to=request.sid)

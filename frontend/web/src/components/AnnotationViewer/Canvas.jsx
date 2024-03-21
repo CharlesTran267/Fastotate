@@ -23,7 +23,7 @@ const MagicAnnotation = dynamic(() => import('./MagicAnnotation'), {
 
 export default function Canvas() {
   const defaultWidthinRem = 50;
-  const maxHeightinRem = 50;
+  const maxHeightinRem = 40;
 
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
   const annotationMode = useAnnotationSessionStore(

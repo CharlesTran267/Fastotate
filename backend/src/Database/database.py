@@ -473,3 +473,26 @@ class Database:
 
         project.removeVideoAnnotation(video_id)
         self.store_project(project)
+
+    def get_all_frames(self, project_id: str, video_id: str) -> List[Image]:
+        project = self.get_project(project_id)
+        video = project.getVideoAnnotation(video_id)
+        frames = []
+        for frame in video.videoFrames:
+            frames.append(self.get_image(frame.image_id))
+        return frames
+
+    def set_key_frame(
+        self, project_id: str, video_id: str, frame_number: int, isKeyFrame: bool
+    ) -> None:
+        project = self.get_project(project_id)
+        video = project.getVideoAnnotation(video_id)
+        video.setKeyFrame(frame_number, isKeyFrame)
+        self.store_project(project)
+
+    def interpolate_annotations(self, project_id: str, video_id: str) -> None:
+        project = self.get_project(project_id)
+        video = project.getVideoAnnotation(video_id)
+        frames = self.get_all_frames(project_id, video_id)
+        video.adjustAnnotationByInterpolation(frames)
+        self.store_project(project)
