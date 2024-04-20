@@ -140,7 +140,7 @@ export default function VideoController() {
         step={1}
         onChange={handleSliding}
       />
-      <div className="flex w-full justify-between px-2 text-xs">
+      <div className="flex w-full justify-between px-2 text-xs h-8">
         {selectedVideo!.videoFrames.map((frame) => (
           <span
             className={frame.keyFrame ? 'text-xl font-black text-primary' : ''}
@@ -149,7 +149,7 @@ export default function VideoController() {
           </span>
         ))}
       </div>
-      <div className="m-4 flex w-full justify-center">
+      <div className="m-2 flex w-full justify-center">
         <button className="btn btn-secondary p-1" onClick={handleInterpolate}>
           Interpolate
         </button>

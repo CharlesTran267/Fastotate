@@ -43,7 +43,8 @@ class VideoAnnotation(BaseModel):
     def setKeyFrame(self, frame_number: int, isKeyFrame: bool) -> None:
         if frame_number in range(len(self.videoFrames)):
             self.videoFrames[frame_number].keyFrame = isKeyFrame
-        logger.warning(f"Frame {frame_number} not in keyFrames list")
+        else:
+            logger.warning(f"Frame {frame_number} not in keyFrames list")
 
     def getKeyFramesID(self) -> List[str]:
         keyFrames = []

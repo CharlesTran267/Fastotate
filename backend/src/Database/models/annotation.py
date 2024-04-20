@@ -23,3 +23,13 @@ class Annotation(BaseModel):
         y = np.array([point[1] for point in self.points])
 
         return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+
+def RectAnnotation(Annotation):
+    x: float
+    y: float
+    width: float
+    height: float
+
+    @property
+    def area(self) -> float:
+        return self.width * self.height

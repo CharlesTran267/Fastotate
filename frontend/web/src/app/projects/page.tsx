@@ -135,7 +135,7 @@ export default function ProjectsPage() {
                         </button>
                       </div>
                       <p>Project ID: {project.project_id}</p>
-                      <p>Num Images: {project.num_images}</p>
+                      <p>Num Files: {project.num_images+1}</p>
                       <p>Num Classes: {project.classes.length}</p>
                       <p>Default Class: {project.default_class}</p>
                       <div className="card-actions mt-2 justify-center gap-4">

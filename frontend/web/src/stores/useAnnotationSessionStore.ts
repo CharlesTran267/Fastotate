@@ -299,11 +299,7 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
           const formData = new FormData();
           const videoUrl = URL.createObjectURL(video);
           const fps = 10;
-          const frames = await VideoToFrames.getFrames(
-            videoUrl,
-            fps,
-            VideoToFramesMethod.fps,
-          );
+          const frames = await VideoToFrames.getFrames(videoUrl, fps);
           frames.forEach((frame) => {
             formData.append('images', frame);
           });

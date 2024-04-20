@@ -7,11 +7,15 @@ import { FaCheck } from 'react-icons/fa';
 export default function EditClassesModal() {
   const sessionActions = useAnnotationSessionStore((state) => state.actions);
   const project = useAnnotationSessionStore((state) => state.project);
+  const [classes, setClasses] = useState<string[]>([]);
+  const [defaultClass, setDefaultClass] = useState<string>('');
 
-  const [classes, setClasses] = useState<string[]>(project?.classes || []);
-  const [defaultClass, setDefaultClass] = useState<string>(
-    project?.default_class || '',
-  );
+  useEffect(() => {
+    if (project) {
+      setClasses(project.classes);
+      setDefaultClass(project.default_class);
+    }
+  },[project]);
 
   const handleChangeDefaultClass = (c: string) => {
     setDefaultClass(c);

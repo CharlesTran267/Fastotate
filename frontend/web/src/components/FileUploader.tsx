@@ -49,7 +49,7 @@ export default function FileUploader() {
             drop
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            SVG, PNG, JPG or GIF
+            SVG, PNG, JPG, GIF, WEBP, etc.
           </p>
         </div>
         <input

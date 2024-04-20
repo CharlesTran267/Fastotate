@@ -3,6 +3,9 @@ export enum VideoToFramesMethod {
   totalFrames,
 }
 
+const maxFrame = 100;
+const minFrame = 10;
+
 export class VideoToFrames {
   /**
    * Extracts frames from the video and returns them as an array of imageData
@@ -12,7 +15,7 @@ export class VideoToFrames {
    */
   public static getFrames(
     videoUrl: string,
-    amount: number,
+    amount: number = 10,
     type: VideoToFramesMethod = VideoToFramesMethod.fps,
   ): Promise<File[]> {
     return new Promise(
@@ -33,6 +36,11 @@ export class VideoToFrames {
           let totalFrames: number = amount;
           if (type === VideoToFramesMethod.fps) {
             totalFrames = duration * amount;
+          }
+          if (totalFrames > maxFrame) {
+            totalFrames = maxFrame;
+          } else if (totalFrames < minFrame) {
+            totalFrames = minFrame;
           }
           for (let time = 0; time < duration; time += duration / totalFrames) {
             const start = performance.now();
