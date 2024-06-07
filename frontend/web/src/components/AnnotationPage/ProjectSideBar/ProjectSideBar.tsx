@@ -63,16 +63,15 @@ export default function ProjectSideBar() {
   };
   const handleExportProject = async () => {
     setLoading(true);
-    const exportedData = await sessionActions.getProjectCOCOformat();
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-      JSON.stringify(exportedData),
-    )}`;
+    const export_file = await sessionActions.getExportProject();
+    const fileURL = URL.createObjectURL(export_file);
     const link = document.createElement('a');
-    link.href = jsonString;
-    link.setAttribute('download', `${projectId}-annotations.coco.json`); // Set the file name
+    link.href = fileURL;
+    link.setAttribute('download', `${projectId}_annotations.zip`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.parentNode?.removeChild(link);
+
     setTimeout(() => {
       setLoading(false);
     }, 500);

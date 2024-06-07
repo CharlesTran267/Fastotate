@@ -1,5 +1,6 @@
 import redis
 from typing import List
+
 from .models import (
     Project,
     ImageAnnotation,
@@ -15,10 +16,11 @@ from ..logger import logger
 import torch
 import io
 import PIL.Image
-from ..utils.utils import hashString
+from ..utils.utils import exportProjectToCOCO, hashString
 from pymongo import MongoClient
 import json
-
+import os
+import zipfile
 
 class Database:
     def __init__(
@@ -36,6 +38,7 @@ class Database:
         if not mongo_url:
             mongo_url = f"mongodb://{mongo_host}:{mongo_port}/"
         self.mongo = MongoClient(mongo_url)["fastotate_db"]
+
 
     def read_from_mongo(self, collection: str, query: dict):
         data = self.mongo[collection].find_one(query)
@@ -496,3 +499,28 @@ class Database:
         frames = self.get_all_frames(project_id, video_id)
         video.adjustAnnotationByInterpolation(frames)
         self.store_project(project)
+
+    def get_project_export(self, project_id):
+        project = self.get_project(project_id)
+        temp_dir = 'temp_files'
+        os.makedirs(temp_dir, exist_ok=True)
+
+        image_paths = []
+        for imageAnnotation in project.imageAnnotations:
+            image = self.get_image(imageAnnotation.image_id)
+            image_path = os.path.join(temp_dir, imageAnnotation.file_name)
+            image_paths.append(image_path)
+            with PIL.Image.open(io.BytesIO(image.image_bytes)) as img:
+                img.save(image_path)
+
+        json_path = os.path.join(temp_dir, '_annotations.coco.json')
+        with open(json_path, 'w') as f:
+            json.dump(exportProjectToCOCO(project), f) 
+        
+        zip_path = os.path.join(temp_dir, 'annotations.zip')
+        with zipfile.ZipFile(zip_path, 'w') as z:
+            for image_path in image_paths:
+                z.write(image_path, os.path.basename(image_path))
+            z.write(json_path, os.path.basename(json_path))
+
+        return os.path.abspath(zip_path)

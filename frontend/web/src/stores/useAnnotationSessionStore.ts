@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import axios from 'axios';
 import { socket } from '@/utils/socket';
 import { addImage, addVideo, deleteImage } from './imageDatabase';
-import { VideoToFrames, VideoToFramesMethod } from '@/utils/VideotoFrame';
+import { VideoToFrames } from '@/utils/VideotoFrame';
 
 export class Annotation {
   annotation_id: string;
@@ -545,6 +545,20 @@ export const useAnnotationSessionStore = create<AnntationSessionStore>(
             console.error('Error interpolating annotations:', error);
           }
         },
+        getExportProject: async () => {
+          const project_id = get().project?.project_id;
+          if (!project_id) return;
+
+          const response = await axios.get(
+            `${backendURL}/get-project-export?project_id=${project_id}`,
+            {
+              responseType: 'arraybuffer',
+            },
+          );
+          const file = new Blob([response.data], { type: 'application/zip' });
+          console.log('Exported project:', file);
+          return file
+        }
       },
     };
   },

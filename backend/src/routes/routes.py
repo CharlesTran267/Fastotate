@@ -1,10 +1,10 @@
-from flask import request, jsonify
+from flask import request, jsonify, send_file
 from ..app import app
 from ..utils.response import Response
 from ..utils.utils import exportProjectToCOCO
 import base64
 from src.logger import logger
-
+import os
 
 @app.route("/api/create-project", methods=["POST"])
 def create_project():
@@ -78,7 +78,14 @@ def get_coco_format():
     response = Response(data=coco, status=200, message="Project exported successfully")
     return jsonify(response.__dict__)
 
+@app.route("/api/get-project-export", methods=["GET"])
+def get_project_export():
+    project_id = request.args.get("project_id")
+    zip_path = app.database.get_project_export(project_id)
+    logger.debug(f"Exported project to {zip_path}")
+    return send_file(zip_path, as_attachment=True)
 
+    
 @app.route("/api/signup", methods=["POST"])
 def register():
     data = request.form
